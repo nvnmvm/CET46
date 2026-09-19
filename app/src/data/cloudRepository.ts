@@ -106,11 +106,13 @@ async function listAllWords(userId: string): Promise<WordWithProgress[]> {
 
 async function listAllEvents(userId: string): Promise<LearningEvent[]> {
   const pageSize = 500;
+  const maxWindow = 5_000;
   const result: LearningEvent[] = [];
   for (let offset = 0; ; offset += pageSize) {
     const page = await apiClient.listEvents(userId, { limit: pageSize, offset });
     result.push(...page.events);
-    if (result.length >= page.total || page.events.length < pageSize) break;
+    // 服务端只开放最近 5,000 条事件；不要在 total 更大时请求被 schema 拒绝的 offset=5000。
+    if (result.length >= Math.min(page.total, maxWindow) || page.events.length < pageSize) break;
   }
   return result.sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
 }
