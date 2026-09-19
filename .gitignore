@@ -5,6 +5,7 @@ cet-word-static-*.zip
 .env
 .env.*
 !.env.example
+!deploy/.env.example
 server/.env
 server/.env.*
 !server/.env.example
