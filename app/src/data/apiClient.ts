@@ -22,7 +22,8 @@ import type {
  * 3. 客户端提交的 stage / score / result 等“结果”字段都不是安全边界：这里只提交
  *    “服务端下发的版本 + 用户原始输入”，最终结果由服务端重算。
  *
- * 本模块是未启用的边界：App.tsx 仍走同步 localStore，第三批不切换页面。
+ * App 的云端仓库通过本模块加载和提交核心学习数据；同步 getter 只存在于
+ * cloudRepository 的内存缓存中，不能把它误当作持久化层。
  */
 
 /* -------------------------------------------------------------------------- */
@@ -696,6 +697,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     if (!response.ok) {
       const error = await readApiError(response);
       if (requestOptions.allowUnauthorized && error.status === 401) return null;
+      if (error.status === 401 && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cet-word-api-unauthorized"));
+      }
       throw error;
     }
 
