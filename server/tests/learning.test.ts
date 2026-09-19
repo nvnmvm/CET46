@@ -127,6 +127,68 @@ test("新学完成写事件且 submissionKey 重试幂等，旧版本提交冲�
   } finally { await context.app.close(); }
 });
 
+test("学习提交严格按会话用户隔离，submissionKey 只在当前用户内幂等", async () => {
+  const context = await createTestApp();
+  await seedUser(context.repository, "alice-submit@example.com", PASSWORD);
+  await seedUser(context.repository, "bob-submit@example.com", PASSWORD);
+  const alice = await login(context, "alice-submit@example.com");
+  const bob = await login(context, "bob-submit@example.com");
+  try {
+    const [aliceWord] = await importWords(context, alice);
+    const [bobWord] = await importWords(context, bob);
+    const aliceEntry = { wordId: aliceWord.id, updatedAt: aliceWord.progress.updatedAt, nextReviewAt: aliceWord.progress.nextReviewAt };
+    const bobEntry = { wordId: bobWord.id, updatedAt: bobWord.progress.updatedAt, nextReviewAt: bobWord.progress.nextReviewAt };
+
+    const aliceDone = await context.app.inject({
+      method: "POST",
+      url: "/api/study/new/complete",
+      headers: { cookie: alice },
+      payload: { submissionKey: "same-key", entries: [aliceEntry] },
+    });
+    assert.equal(aliceDone.statusCode, 200);
+    assert.equal(aliceDone.json().completed, 1);
+    assert.equal(aliceDone.json().duplicate, false);
+
+    // Bob may use the same idempotency key, but it must be a separate submission.
+    const bobDone = await context.app.inject({
+      method: "POST",
+      url: "/api/study/new/complete",
+      headers: { cookie: bob },
+      payload: { submissionKey: "same-key", entries: [bobEntry] },
+    });
+    assert.equal(bobDone.statusCode, 200);
+    assert.equal(bobDone.json().completed, 1);
+    assert.equal(bobDone.json().duplicate, false);
+
+    // A known Alice word ID submitted by Bob is ignored and cannot mutate Alice's progress.
+    const crossUser = await context.app.inject({
+      method: "POST",
+      url: "/api/review/complete",
+      headers: { cookie: bob },
+      payload: {
+        submissionKey: "bob-cross-user",
+        entries: [{
+          ...aliceEntry,
+          recognition: { firstChoice: "known", hadError: false, attempts: 1 },
+          spelling: { input: "retain-0", correct: true, hadError: false },
+        }],
+      },
+    });
+    assert.equal(crossUser.statusCode, 200);
+    assert.equal(crossUser.json().completed, 0);
+    assert.equal(crossUser.json().skipped, 1);
+    assert.equal(crossUser.json().results[0].reason, "not_found");
+
+    const aliceAfter = (await context.app.inject({ method: "GET", url: "/api/words", headers: { cookie: alice } })).json().words;
+    const bobAfter = (await context.app.inject({ method: "GET", url: "/api/words", headers: { cookie: bob } })).json().words;
+    assert.ok(aliceAfter[0].progress.firstLearnedAt);
+    assert.ok(bobAfter[0].progress.firstLearnedAt);
+    assert.equal((await context.app.inject({ method: "GET", url: "/api/events", headers: { cookie: alice } })).json().total, 1);
+    assert.equal((await context.app.inject({ method: "GET", url: "/api/events", headers: { cookie: bob } })).json().total, 1);
+    assert.deepEqual(context.repository.snapshotSubmissions("missing-user"), []);
+  } finally { await context.app.close(); }
+});
+
 test("复习、独立拼写和事务失败分别保持规则与原子性", async () => {
   const { context, cookie } = await oneUser();
   try {
