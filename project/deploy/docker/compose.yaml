@@ -1,0 +1,72 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?set MYSQL_DATABASE in server/.env}
+      MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER in server/.env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in server/.env}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - cet_word_mysql_data:/var/lib/mysql
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+
+  api:
+    build:
+      context: ../../..
+      dockerfile: project/deploy/docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${CET_WORD_ENV_FILE:-../../../server/.env}
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - private
+      edge:
+        aliases:
+          - cet-word-api
+
+  migrate:
+    profiles: ["maintenance"]
+    build:
+      context: ../../..
+      dockerfile: project/deploy/docker/Dockerfile
+    env_file:
+      - ${CET_WORD_ENV_FILE:-../../../server/.env}
+    environment:
+      NODE_ENV: production
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - private
+    command: ["node", "server/scripts/migrate.ts"]
+    restart: "no"
+
+volumes:
+  cet_word_mysql_data:
+
+networks:
+  private:
+    internal: true
+  # 由服务器上已运行的 1Panel OpenResty 容器创建；部署前用 docker inspect
+  # 读取实际网络名，填入 server/.env 的 OPENRESTY_NETWORK。
+  edge:
+    external: true
+    name: ${OPENRESTY_NETWORK:?set OPENRESTY_NETWORK to the existing OpenResty Docker network}

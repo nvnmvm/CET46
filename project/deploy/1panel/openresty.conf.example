@@ -1,0 +1,28 @@
+# 片段示例：放入 1Panel 网站的 OpenResty/Nginx 自定义配置区域。
+# 按实际 API 服务地址、静态目录和域名修改，并先在预发布验证。
+
+location ^~ /api/ {
+    # cet-word-api 是 Compose 在 OpenResty 现有 Docker 网络中的私有别名。
+    # 不要改成 127.0.0.1：那会指向 OpenResty 容器自己。
+    proxy_pass http://cet-word-api:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Cookie $http_cookie;
+    proxy_set_header Connection "";
+    proxy_pass_request_body on;
+    proxy_read_timeout 30s;
+    # API 的 JSON 4xx/5xx 必须原样返回，不能让站点 SPA 接管。
+    proxy_intercept_errors off;
+}
+
+location = /api { return 404; }
+
+location / {
+    try_files $uri $uri/ /index.html;
+}
+
+# 生产环境应另行配置 HTTPS、HSTS、日志轮转和上传大小限制。
+# 不要为 /api/ 配置回退到 /index.html 的规则。

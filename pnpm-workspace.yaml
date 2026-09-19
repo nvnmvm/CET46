@@ -1,0 +1,4 @@
+allowBuilds:
+  argon2: true
+# pnpm 12 起，onlyBuiltDependencies 等设置从 package.json 的 pnpm 字段迁移到本文件。
+# 只允许 argon2 运行安装脚本（它需要构建/下载原生绑定）；其余依赖的构建脚本保持默认阻止。

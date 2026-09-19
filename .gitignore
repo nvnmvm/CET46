@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+cet-word-static-*.zip
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example

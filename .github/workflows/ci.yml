@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: development
+      SESSION_SECRET: ci-only-session-secret-01234567890123456789
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: cet_words_test
+      MYSQL_USER: cet_words_test
+      MYSQL_PASSWORD: cet_words_test_password
+      RUN_MYSQL_TESTS: "1"
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: cet_words_test
+          MYSQL_USER: cet_words_test
+          MYSQL_PASSWORD: cet_words_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run db:migrate
+      - run: pnpm run db:migrate
+      - run: pnpm test
+      - run: pnpm run test:server
+      - run: pnpm run typecheck:server
+      - run: pnpm run build
