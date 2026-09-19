@@ -246,6 +246,37 @@ test('switching from A to B never exposes the previous user cache', async () => 
   assert.equal(repository.getReviewDraft('user_A'), null);
 });
 
+test('a slower hydrate from the previous user cannot overwrite the active user', async () => {
+  const api = createFakeApi({
+    user_A: emptyState({ words: [makeWord('a1', 'apple')] }),
+    user_B: emptyState({ words: [makeWord('b1', 'banana')] }),
+  });
+  const originalListWords = api.listWords.bind(api);
+  let enteredResolve;
+  const entered = new Promise((resolve) => { enteredResolve = resolve; });
+  let releaseResolve;
+  const release = new Promise((resolve) => { releaseResolve = resolve; });
+  api.listWords = async (userId, options = {}) => {
+    const result = await originalListWords(userId, options);
+    if (userId === 'user_A') {
+      enteredResolve();
+      await release;
+    }
+    return result;
+  };
+  const repository = createCloudRepository(api);
+
+  const firstHydrate = repository.hydrate('user_A');
+  await entered;
+  api.setActiveUser('user_B');
+  await repository.hydrate('user_B');
+  releaseResolve();
+  await firstHydrate;
+
+  assert.deepEqual(repository.getWords('user_B').map((word) => word.word), ['banana']);
+  assert.deepEqual(repository.getWords('user_A'), []);
+});
+
 test('import and delete rehydrate only after the server mutation succeeds', async () => {
   const api = createFakeApi({ user_A: emptyState({ words: [makeWord('w1', 'apple'), makeWord('w2', 'retain')] }) });
   const repository = createCloudRepository(api);
@@ -295,6 +326,37 @@ test('settings save updates the cache only with the server response', async () =
   assert.equal(repository.getDailyGroupWords('user_A'), 12);
   assert.equal(repository.getDailyTarget('user_A'), 30);
   assert.deepEqual(repository.getCountdown('user_A'), { label: '考试', targetDate: '2026-12-12' });
+});
+
+test('cloud backup is a library-only export and restores through the current account', async () => {
+  const api = createFakeApi({
+    user_A: emptyState({
+      words: [makeWord('w1', 'apple', { progress: { reviewStage: 4, killedAt: '2026-09-19T03:00:00.000Z' } })],
+      events: [{ id: 'e1', wordId: 'w1', occurredAt: '2026-09-19T02:00:00.000Z', kind: 'new', reviewStage: 1 }],
+    }),
+  });
+  const repository = createCloudRepository(api);
+  await repository.hydrate('user_A');
+
+  const exported = JSON.parse(repository.exportBackup('user_A'));
+  assert.equal(exported.format, 'cet-word-library-backup');
+  assert.equal(exported.version, 1);
+  assert.equal(exported.words.length, 1);
+  assert.equal(exported.words[0].word, 'apple');
+  assert.equal('id' in exported.words[0], false);
+  assert.equal('userId' in exported.words[0], false);
+  assert.equal('progress' in exported.words[0], false);
+  assert.equal('progress' in exported, false);
+  assert.equal('learningEvents' in exported, false);
+
+  const result = await repository.restoreBackup('user_A', JSON.stringify({
+    format: 'cet-word-library-backup',
+    version: 1,
+    exportedAt: '2026-09-19T04:00:00.000Z',
+    words: [{ word: 'banana', phonetic: '/banana/', meaning: 'banana', type: 'added' }],
+  }));
+  assert.deepEqual(result, { restored: 1, added: 1, existing: 0 });
+  assert.ok(api.calls.some((call) => call[0] === 'importWords' && call[1][0].word === 'banana'));
 });
 
 test('draft revision conflict refreshes the latest draft and rejects the save', async () => {
