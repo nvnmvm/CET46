@@ -74,3 +74,21 @@ checks succeed.
 The current public IP is HTTP only. HTTPS, DNS, and a certificate remain a
 required external prerequisite before the Secure session cookie can be accepted
 by browsers, so this repository change deliberately does not claim a live login.
+
+## Daily database backup
+
+After the API and MySQL have passed the first health checks, install the bundled
+backup script on the server. It uses the same private Compose network, writes
+files with mode `0600`, verifies each gzip before publishing it, and retains
+seven daily plus roughly five weeks of weekly points:
+
+```bash
+chmod 700 project/deploy/docker/backup-mysql.sh
+mkdir -p /opt/cet-word-stack/backups
+15 3 * * * /opt/cet-word-stack/project/deploy/docker/backup-mysql.sh >> /opt/cet-word-stack/backups/backup.log 2>&1
+```
+
+Before calling the deployment complete, restore one backup into a separate
+temporary database (for example `cet_words_restore_test`) and compare the
+`users`, `words`, `word_progress`, and `learning_events` counts. Never restore
+over the production database during the drill.
