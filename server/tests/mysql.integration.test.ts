@@ -108,3 +108,170 @@ test(
       assert.equal(updatedSettings.statusCode, 200);
       assert.equal(updatedSettings.json().settings.dailyPlanConfigured, true);
       assert.equal(updatedSettings.json().settings.dailyGroups, 3);
+      assert.deepEqual(updatedSettings.json().settings.countdown, { label: "考试", targetDate: "2026-12-12" });
+
+      const firstDraft = await app.inject({
+        method: "PUT",
+        url: "/api/review/draft",
+        headers: { cookie },
+        payload: {
+          key: "mysql-daily",
+          revision: 0,
+          mode: "new",
+          scope: "daily",
+          phase: "learning",
+          payload: { itemIds: ["pending"] },
+        },
+      });
+      assert.equal(firstDraft.statusCode, 200);
+      assert.equal(firstDraft.json().draft.revision, 1);
+
+      const staleDraft = await app.inject({
+        method: "PUT",
+        url: "/api/review/draft",
+        headers: { cookie },
+        payload: {
+          key: "mysql-daily",
+          revision: 0,
+          payload: { itemIds: ["stale"] },
+        },
+      });
+      assert.equal(staleDraft.statusCode, 409);
+
+      const imported = await app.inject({
+        method: "POST",
+        url: "/api/words/import",
+        headers: { cookie },
+        payload: {
+          words: [
+            { word: "mysql-retain", phonetic: "/rɪˈteɪn/", meaning: "保留", type: "marked" },
+            { word: "mysql-revise", phonetic: "/rɪˈvaɪz/", meaning: "复习", type: "added" },
+          ],
+        },
+      });
+      assert.equal(imported.statusCode, 200);
+
+      const listed = await app.inject({
+        method: "GET",
+        url: "/api/words",
+        headers: { cookie },
+      });
+      assert.equal(listed.statusCode, 200);
+      const words = listed.json().words as Array<{
+        id: string;
+        word: string;
+        progress: { updatedAt: string; nextReviewAt: string };
+      }>;
+      assert.equal(words.length, 2);
+
+      const newEntries = words.map((word) => ({
+        wordId: word.id,
+        updatedAt: word.progress.updatedAt,
+        nextReviewAt: word.progress.nextReviewAt,
+      }));
+      const newCompletion = await app.inject({
+        method: "POST",
+        url: "/api/study/new/complete",
+        headers: { cookie },
+        payload: { submissionKey: "mysql-new-001", entries: newEntries },
+      });
+      assert.equal(newCompletion.statusCode, 200);
+      assert.equal(newCompletion.json().completed, 2);
+
+      const duplicateCompletion = await app.inject({
+        method: "POST",
+        url: "/api/study/new/complete",
+        headers: { cookie },
+        payload: { submissionKey: "mysql-new-001", entries: newEntries },
+      });
+      assert.equal(duplicateCompletion.statusCode, 200);
+      assert.equal(duplicateCompletion.json().duplicate, true);
+      assert.equal(duplicateCompletion.json().completed, 2);
+
+      const afterNew = (await app.inject({
+        method: "GET",
+        url: "/api/words",
+        headers: { cookie },
+      })).json().words as typeof words;
+      const target = afterNew[0];
+      assert.ok(target);
+
+      const dishonestSpelling = await app.inject({
+        method: "POST",
+        url: "/api/spelling/complete",
+        headers: { cookie },
+        payload: {
+          submissionKey: "mysql-spell-001",
+          entries: [{
+            wordId: target.id,
+            updatedAt: target.progress.updatedAt,
+            nextReviewAt: target.progress.nextReviewAt,
+            spelling: { input: "definitely-wrong", correct: true, hadError: false },
+          }],
+        },
+      });
+      assert.equal(dishonestSpelling.statusCode, 200);
+      assert.equal(dishonestSpelling.json().completed, 0);
+      assert.equal(dishonestSpelling.json().skipped, 1);
+
+      const current = (await app.inject({
+        method: "GET",
+        url: "/api/words",
+        headers: { cookie },
+      })).json().words.find((word: typeof target) => word.id === target.id) as typeof target;
+      const spelling = await app.inject({
+        method: "POST",
+        url: "/api/spelling/complete",
+        headers: { cookie },
+        payload: {
+          submissionKey: "mysql-spell-002",
+          entries: [{
+            wordId: current.id,
+            updatedAt: current.progress.updatedAt,
+            nextReviewAt: current.progress.nextReviewAt,
+            spelling: { input: current.word, correct: true, hadError: true },
+          }],
+        },
+      });
+      assert.equal(spelling.statusCode, 200);
+      assert.equal(spelling.json().completed, 1);
+      assert.equal(spelling.json().corrected, 1);
+
+      const afterSpelling = (await app.inject({
+        method: "GET",
+        url: "/api/words",
+        headers: { cookie },
+      })).json().words.find((word: typeof target) => word.id === target.id) as typeof target;
+      const review = await app.inject({
+        method: "POST",
+        url: "/api/review/complete",
+        headers: { cookie },
+        payload: {
+          submissionKey: "mysql-review-001",
+          entries: [{
+            wordId: afterSpelling.id,
+            updatedAt: afterSpelling.progress.updatedAt,
+            nextReviewAt: afterSpelling.progress.nextReviewAt,
+            recognition: { firstChoice: "known", hadError: false, attempts: 1 },
+            spelling: { input: afterSpelling.word, correct: true, hadError: false },
+          }],
+        },
+      });
+      assert.equal(review.statusCode, 200);
+      assert.equal(review.json().completed, 1);
+      assert.equal(review.json().grades.good, 1);
+
+      const events = await app.inject({
+        method: "GET",
+        url: "/api/events",
+        headers: { cookie },
+      });
+      assert.equal(events.statusCode, 200);
+      assert.equal(events.json().total, 3);
+    } finally {
+      await app.close();
+      await pool.execute("DELETE FROM users WHERE id = ?", [userId]);
+      await repository.close();
+    }
+  },
+);
