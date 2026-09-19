@@ -434,7 +434,7 @@ function SignInRequired() {
       <p className="text-sm font-medium text-blue-700">需要服务器账号</p>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">登录服务器账号</h1>
       <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
-        登录后即可继续导入和复习。本系统不提供公开注册，账号由管理员创建；词库同步接入仍在后续阶段，页面中的词库数据目前仍保存在这台设备上。
+        登录后即可继续导入和复习。本系统不提供公开注册，账号由管理员创建；词库、学习进度和设置由服务器保存，可在已登录的设备间同步。
       </p>
       <a href="#/login" className="button-primary mt-6 inline-flex">
         登录服务器账号
@@ -603,9 +603,9 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
           wordCount={words.length}
           error={groupsError}
           onCancel={() => setGroupsOpen(false)}
-          onSave={(value) => {
+          onSave={async (value) => {
             try {
-              wordRepository.setDailyGroups(user.id, value);
+              await wordRepository.setDailyGroups(user.id, value);
               setDailyGroups(value);
               setGroupsError("");
               setGroupsOpen(false);
@@ -622,9 +622,9 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
           groups={dailyGroups}
           error={groupWordsError}
           onCancel={() => setGroupWordsOpen(false)}
-          onSave={(value) => {
+          onSave={async (value) => {
             try {
-              wordRepository.setDailyGroupWords(user.id, value);
+              await wordRepository.setDailyGroupWords(user.id, value);
               setDailyGroupWords(value);
               setGroupWordsError("");
               setGroupWordsOpen(false);
@@ -750,8 +750,8 @@ function ProfilePage({ user, words, dueWords, onUserChanged }: { user: LocalUser
         <CountdownSettingsModal
           value={countdown}
           onCancel={() => setCountdownOpen(false)}
-          onSaved={(nextCountdown) => {
-            wordRepository.setCountdown(user.id, nextCountdown);
+          onSaved={async (nextCountdown) => {
+            await wordRepository.setCountdown(user.id, nextCountdown);
             setCountdownOpen(false);
             setProfileMessage(nextCountdown ? "倒数日已保存。" : "倒数日已清除。");
             onUserChanged(user);
@@ -933,7 +933,7 @@ function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: 
   );
 }
 
-function CountdownSettingsModal({ value, onCancel, onSaved }: { value: CountdownSettings | null; onCancel: () => void; onSaved: (value: CountdownSettings | null) => void }) {
+function CountdownSettingsModal({ value, onCancel, onSaved }: { value: CountdownSettings | null; onCancel: () => void; onSaved: (value: CountdownSettings | null) => void | Promise<void> }) {
   const { dialogRef, onBackdropPointerDown } = useModalDialog(onCancel);
   const [label, setLabel] = useState(value?.label ?? "");
   const now = new Date();
@@ -951,18 +951,18 @@ function CountdownSettingsModal({ value, onCancel, onSaved }: { value: Countdown
     setError("");
   };
 
-  const save = (event: FormEvent) => {
+  const save = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      onSaved({ label, targetDate });
+      await onSaved({ label, targetDate });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "倒数日保存失败，请重试。");
     }
   };
 
-  const clear = () => {
+  const clear = async () => {
     try {
-      onSaved(null);
+      await onSaved(null);
     } catch (clearError) {
       setError(clearError instanceof Error ? clearError.message : "倒数日清除失败，请重试。");
     }
@@ -1275,7 +1275,7 @@ function LoginPage({ user, onLogin, onLogout }: { user: LocalUser | null; onLogi
           </button>
         </form>
         <p className="mt-3 text-xs leading-5 text-slate-400">
-          词库同步接入仍在后续阶段：登录后词库与复习数据目前仍保存在这台设备的浏览器中。
+          登录后词库、学习进度和设置由服务器保存，可在已登录的设备间同步。
         </p>
         {user && (
           <button
@@ -1305,19 +1305,19 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
   const existing = parsed.rows.filter((row) => existingWords.has(row.word)).length;
   const placeholder = "word\tphonetic\tmeaning\tphrase\tsentence\tsentence_cn\tsource\ttype";
 
-  const confirmImport = () => {
+  const confirmImport = async () => {
     if (parsed.errors.length > 0 || parsed.rows.length === 0) return;
     try {
-      const result = wordRepository.importWords(user.id, parsed.rows);
+      const result = await wordRepository.importWords(user.id, parsed.rows);
       setMessage(`已完成导入：新增 ${result.added} 个，更新已有 ${result.existing} 个；原有学习进度没有被重置。`);
       setValue("");
       onImported();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "导入失败，请先检查本机数据状态。");
+      setMessage(error instanceof Error ? error.message : "导入失败，请检查网络和服务器状态。");
     }
   };
 
-  const addManualWord = (event: FormEvent) => {
+  const addManualWord = async (event: FormEvent) => {
     event.preventDefault();
     const word = manual.word.trim().toLowerCase();
     if (!word) {
@@ -1340,12 +1340,12 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
       Object.entries({ ...manual, word }).map(([key, fieldValue]) => [key, typeof fieldValue === "string" ? fieldValue.trim() : fieldValue]),
     ) as WordInput;
     try {
-      const result = wordRepository.importWords(user.id, [cleanedManual]);
+      const result = await wordRepository.importWords(user.id, [cleanedManual]);
       setMessage(result.added ? `已添加 ${word}，现在会进入今日学习任务。` : `已更新 ${word}；原有学习进度没有被重置。`);
       setManual({ word: "", phonetic: "", meaning: "", phrase: "", sentence: "", sentenceCn: "", source: "", type: "marked" });
       onImported();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "添加失败，请先检查本机数据状态。");
+      setMessage(error instanceof Error ? error.message : "添加失败，请检查网络和服务器状态。");
     }
   };
 
@@ -1571,10 +1571,10 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedWordIds.has(item.id));
   const selectionScopeLabel = keyword.trim() ? "当前搜索结果" : `当前${wordListFilterLabels[stateFilter]}分组`;
 
-  const remove = (item: WordWithProgress) => {
+  const remove = async (item: WordWithProgress) => {
     if (!window.confirm(`确定删除 “${item.word}” 吗？该词的学习进度也会一并删除。`)) return;
     try {
-      wordRepository.deleteWord(user.id, item.id);
+      await wordRepository.deleteWord(user.id, item.id);
       setUndoWord(null);
       setSelectedWordIds((current) => {
         const next = new Set(current);
@@ -1583,7 +1583,7 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       });
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "删除失败，请先检查本机数据状态。");
+      setDataMessage(error instanceof Error ? error.message : "删除失败，请检查网络和服务器状态。");
     }
   };
 
@@ -1591,38 +1591,38 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
     setPendingKill(item);
   };
 
-  const confirmKill = () => {
+  const confirmKill = async () => {
     const item = pendingKill;
     if (!item) return;
     try {
-      if (!wordRepository.killWord(user.id, item.id)) return;
+      if (!await wordRepository.killWord(user.id, item.id)) return;
       setUndoWord({ id: item.id, word: item.word });
       setPendingKill(null);
       setOpenId(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "斩词失败，请先检查本机数据状态。");
+      setDataMessage(error instanceof Error ? error.message : "斩词失败，请检查网络和服务器状态。");
     }
   };
 
-  const restore = (item: WordWithProgress) => {
+  const restore = async (item: WordWithProgress) => {
     try {
-      if (!wordRepository.restoreWord(user.id, item.id)) return;
+      if (!await wordRepository.restoreWord(user.id, item.id)) return;
       setUndoWord(null);
       setOpenId(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "恢复失败，请先检查本机数据状态。");
+      setDataMessage(error instanceof Error ? error.message : "恢复失败，请检查网络和服务器状态。");
     }
   };
 
-  const undoKill = () => {
+  const undoKill = async () => {
     try {
-      if (!undoWord || !wordRepository.undoKillWord(user.id, undoWord.id)) return;
+      if (!undoWord || !await wordRepository.undoKillWord(user.id, undoWord.id)) return;
       setUndoWord(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "撤销失败，请先检查本机数据状态。");
+      setDataMessage(error instanceof Error ? error.message : "撤销失败，请检查网络和服务器状态。");
     }
   };
 
@@ -1652,7 +1652,7 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
 
   const downloadBackup = () => {
     downloadTextFile(wordRepository.exportBackup(user.id), `cet-word-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    setDataMessage(`已导出 ${words.length} 个词的本机备份。`);
+    setDataMessage(`已导出 ${words.length} 个词的云端数据备份文件。`);
   };
 
   const downloadEditableTsv = () => {
@@ -1688,9 +1688,9 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
     });
   };
 
-  const confirmBatchDelete = () => {
+  const confirmBatchDelete = async () => {
     try {
-      const deleted = wordRepository.deleteWords(user.id, [...selectedWordIds]);
+      const deleted = await wordRepository.deleteWords(user.id, [...selectedWordIds]);
       setBatchDeleteOpen(false);
       setSelectedWordIds(new Set());
       setOpenId(null);
@@ -1703,7 +1703,7 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       setDataMessage(`已永久删除 ${deleted} 个词及其学习进度。`);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "批量删除失败，请先检查本机数据状态。");
+      setDataMessage(error instanceof Error ? error.message : "批量删除失败，请检查网络和服务器状态。");
     }
   };
 
@@ -1715,11 +1715,11 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
     }
     try {
       const raw = await file.text();
-      if (!window.confirm("恢复备份会替换当前学习档案中的词库和进度。系统会先自动保留一份恢复前备份，确定继续吗？")) return;
-      const result = wordRepository.restoreBackup(user.id, raw);
+      if (!window.confirm("恢复备份会把备份中的词条导入当前服务器账号；已有云端学习进度不会被覆盖。确定继续吗？")) return;
+      const result = await wordRepository.restoreBackup(user.id, raw);
       setUndoWord(null);
       setOpenId(null);
-      setDataMessage(`备份恢复完成：共恢复 ${result.restored} 个词；恢复前数据已自动保留一份本机备份。`);
+      setDataMessage(`词条导入完成：共处理 ${result.restored} 个词；已有云端学习进度保持不变。`);
       onChanged();
     } catch (error) {
       setDataMessage(error instanceof Error ? error.message : "备份恢复失败，请检查文件。");
@@ -1762,8 +1762,8 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       </section>
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-white p-4">
         <div>
-          <p className="text-sm font-semibold">本机数据备份</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">换设备或清理浏览器前，请先导出 JSON 备份。</p>
+          <p className="text-sm font-semibold">云端数据备份</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">服务器数据已跨设备保存；导出的 JSON 可用于保留词条副本或重新导入。</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={downloadBackup} className="button-secondary px-3 text-sm">导出备份</button>
@@ -1916,9 +1916,9 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
               {expanded && (
                 <div id={`word-details-${item.id}`} className="word-details space-y-3 px-4 py-4 text-sm leading-6 text-slate-600">
                   {editing?.id === item.id ? (
-                    <form className="space-y-3 rounded-xl bg-blue-50 p-3" onSubmit={event => {
+                    <form className="space-y-3 rounded-xl bg-blue-50 p-3" onSubmit={async event => {
                       event.preventDefault();
-                      try { wordRepository.updateWord(user.id, item.id, editing.phonetic, editing.meaning); setEditing(null); setDataMessage("音标和释义已更新，学习进度保持不变。"); onChanged(); }
+                      try { await wordRepository.updateWord(user.id, item.id, editing.phonetic, editing.meaning); setEditing(null); setDataMessage("音标和释义已更新，学习进度保持不变。"); onChanged(); }
                       catch (error) { setDataMessage(error instanceof Error ? error.message : "保存失败"); }
                     }}>
                       <label className="block">IPA 音标<input required className="input" value={editing.phonetic} onChange={event => setEditing({ ...editing, phonetic: event.target.value })} /></label>
@@ -2004,7 +2004,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
     const freshItems = newWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
     const storedDraft = wordRepository.getReviewDraft(user.id);
     if (!storedDraft || storedDraft.mode !== "new" || storedDraft.phase !== "learning") {
-      if (storedDraft?.mode === "new") wordRepository.clearReviewDraft(user.id);
+      if (storedDraft?.mode === "new") void wordRepository.clearReviewDraft(user.id);
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
 
@@ -2017,7 +2017,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
       .map((wordId) => byId.get(wordId))
       .filter((item): item is WordWithProgress => Boolean(item));
     if (savedItems.length === 0) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
     const savedIndex = storedDraft.currentWordId
@@ -2039,17 +2039,16 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
 
   useEffect(() => {
     if (phase === "complete") {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
     if (phase !== "learning") return;
     const activeWord = items[index];
     if (!activeWord) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
-    try {
-      wordRepository.saveReviewDraft(user.id, {
+    void wordRepository.saveReviewDraft(user.id, {
         itemIds: items.map((item) => item.id),
         recognitionQueueIds: [],
         mode: "new",
@@ -2062,11 +2061,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
         firstChoice: null,
         answer: "",
         spellingChecked: null,
-      });
-      setDraftWarning("");
-    } catch {
-      setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。");
-    }
+      }).then(() => setDraftWarning("")).catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
   }, [index, items, phase, user.id]);
 
   const backToToday = (
@@ -2094,7 +2089,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
       const save = () => wordRepository.completeNewStudy(user.id, items);
       const result = typeof navigator !== "undefined" && navigator.locks
         ? await navigator.locks.request("cet-word-database-write", save)
-        : save();
+        : await save();
       if (result.completed !== items.length) {
         finalizingStudy.current = false;
         setDraftWarning("部分词条已在其他页面发生变化，本轮没有重复覆盖；请返回今日页面后重新开始剩余新词。");
@@ -2120,7 +2115,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
 
   const startNextGroup = () => {
     const freshItems = newWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
-    wordRepository.clearReviewDraft(user.id);
+    void wordRepository.clearReviewDraft(user.id);
     setItems(freshItems);
     setIndex(0);
     setCompletion(null);
@@ -2255,7 +2250,7 @@ function SpellingPracticePage({
       .map((wordId) => byId.get(wordId))
       .filter((item): item is WordWithProgress => Boolean(item));
     if (savedItems.length === 0) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0, groupStart: 0 };
     }
     const savedIndex = storedDraft.currentWordId
@@ -2294,17 +2289,16 @@ function SpellingPracticePage({
 
   useEffect(() => {
     if (phase === "complete") {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
     if (phase !== "spelling") return;
     const activeWord = items[index];
     if (!activeWord) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
-    try {
-      wordRepository.saveReviewDraft(user.id, {
+    void wordRepository.saveReviewDraft(user.id, {
         itemIds: items.map((item) => item.id),
         recognitionQueueIds: [],
         mode: "spell",
@@ -2318,11 +2312,9 @@ function SpellingPracticePage({
         firstChoice: null,
         answer,
         spellingChecked,
-      });
-      setDraftWarning("");
-    } catch {
-      setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。");
-    }
+      })
+      .then(() => setDraftWarning(""))
+      .catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
   }, [answer, hadSpellingError, index, items, phase, source, spelling, spellingChecked, user.id]);
 
   const backToSource = (
@@ -2360,7 +2352,7 @@ function SpellingPracticePage({
   const startNextLibraryGroup = () => {
     const nextItems = spellingCandidates.slice(nextGroupStart, nextGroupStart + groupLimit);
     if (nextItems.length === 0) return;
-    wordRepository.clearReviewDraft(user.id);
+    void wordRepository.clearReviewDraft(user.id);
     finalizingSpelling.current = false;
     setItems(nextItems);
     setGroupStart(nextGroupStart);
@@ -2400,7 +2392,7 @@ function SpellingPracticePage({
       const save = () => wordRepository.finishSpellingPractice(user.id, items, nextSpelling);
       const result = typeof navigator !== "undefined" && navigator.locks
         ? await navigator.locks.request("cet-word-database-write", save)
-        : save();
+        : await save();
       if (result.completed !== items.length) {
         finalizingSpelling.current = false;
         setDraftWarning("部分词条已在其他页面发生变化，本轮没有重复覆盖；请返回今日页面后重新开始练习。");
@@ -2555,7 +2547,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     const savedQueue = draft.recognitionQueueIds.map((wordId) => byId.get(wordId)).filter((item): item is WordWithProgress => Boolean(item));
     const valid = savedItems.length > 0 && (draft.phase !== "recognition" || savedQueue.length > 0);
     if (!valid) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return { items: freshItems, queue: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
     const activeItems = draft.phase === "recognition" ? savedQueue : savedItems;
@@ -2609,18 +2601,17 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
 
   useEffect(() => {
     if (phase === "complete") {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
     if (phase === "ready") return;
     const activeItems = phase === "recognition" ? recognitionQueue : items;
     const currentWordId = activeItems[index]?.id ?? null;
     if (!currentWordId) {
-      wordRepository.clearReviewDraft(user.id);
+      void wordRepository.clearReviewDraft(user.id);
       return;
     }
-    try {
-      wordRepository.saveReviewDraft(user.id, {
+    void wordRepository.saveReviewDraft(user.id, {
         itemIds: items.map((item) => item.id),
         recognitionQueueIds: recognitionQueue.map((item) => item.id),
         mode,
@@ -2633,11 +2624,9 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         firstChoice,
         answer,
         spellingChecked,
-      });
-      setDraftWarning("");
-    } catch {
-      setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。");
-    }
+      })
+      .then(() => setDraftWarning(""))
+      .catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
   }, [answer, firstChoice, hadSpellingError, index, items, phase, recognition, recognitionQueue, spelling, spellingChecked, user.id]);
 
   if (items.length === 0 && phase !== "complete") {
@@ -2654,12 +2643,12 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
   const current = (phase === "recognition" ? recognitionQueue[index] : items[index]) ?? items[0]!;
   const isRelearning = phase === "recognition" && Boolean(current && recognition[current.id]);
 
-  const killCurrent = () => {
+  const killCurrent = async () => {
     if (!current) return;
     try {
-      if (!wordRepository.killWord(user.id, current.id)) return;
+      if (!await wordRepository.killWord(user.id, current.id)) return;
     } catch (error) {
-      setDraftWarning(error instanceof Error ? error.message : "斩词失败，请先检查本机数据状态。");
+      setDraftWarning(error instanceof Error ? error.message : "斩词失败，请检查网络和服务器状态。");
       return;
     }
     setKillConfirmOpen(false);
@@ -2728,7 +2717,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
 
   const restartReview = () => {
     const freshItems = modeDueWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
-    wordRepository.clearReviewDraft(user.id);
+    void wordRepository.clearReviewDraft(user.id);
     setItems(freshItems);
     setRecognitionQueue(freshItems);
     setRecognition({});
@@ -2768,7 +2757,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         const save = () => wordRepository.finishReview(user.id, items, recognition, nextSpelling);
         const result = typeof navigator !== "undefined" && navigator.locks
           ? await navigator.locks.request("cet-word-database-write", save)
-          : save();
+        : await save();
         setCompletion(result);
         setPhase("complete");
         onFinished();
@@ -3053,13 +3042,34 @@ export default function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => wordRepository.getThemeMode());
   const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches === true);
   const [revision, setRevision] = useState(0);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState("");
   const [storageStatus, setStorageStatus] = useState(() => wordRepository.getStorageStatus());
   const darkTheme = themeMode === "dark" || (themeMode === "system" && systemDark);
   const words = useMemo(() => (user ? wordRepository.getWords(user.id) : []), [user, revision]);
   const dueWords = useMemo(() => (user ? wordRepository.getDueWords(user.id) : []), [user, revision]);
+  const handleCloudError = (error: unknown, fallback: string) => {
+    if (error instanceof ApiError && error.status === 401) {
+      authProbeRef.current += 1;
+      setUser(null);
+      setCloudLoading(false);
+      setCloudError("");
+      window.location.hash = "/login";
+      return;
+    }
+    setCloudError(error instanceof Error ? error.message : fallback);
+  };
   const refresh = () => {
-    setStorageStatus(wordRepository.getStorageStatus());
-    setRevision((value) => value + 1);
+    if (!user) {
+      setRevision((value) => value + 1);
+      return;
+    }
+    setCloudLoading(true);
+    setCloudError("");
+    void wordRepository.hydrate(user.id)
+      .then(() => setRevision((value) => value + 1))
+      .catch((error) => handleCloudError(error, "云端数据加载失败，请重试。"))
+      .finally(() => setCloudLoading(false));
   };
 
   useEffect(() => {
@@ -3079,6 +3089,39 @@ export default function App() {
       if (media.removeEventListener) media.removeEventListener("change", sync);
       else media.removeListener(sync);
     };
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setCloudLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCloudLoading(true);
+    setCloudError("");
+    void wordRepository.hydrate(user.id)
+      .then(() => {
+        if (!cancelled) setRevision((value) => value + 1);
+      })
+      .catch((error) => {
+        if (!cancelled) handleCloudError(error, "云端数据加载失败，请重试。" );
+      })
+      .finally(() => {
+        if (!cancelled) setCloudLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      authProbeRef.current += 1;
+      setUser(null);
+      setCloudLoading(false);
+      setCloudError("");
+      window.location.hash = "/login";
+    };
+    window.addEventListener("cet-word-api-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("cet-word-api-unauthorized", onUnauthorized);
   }, []);
 
   const changeTheme = (mode: ThemeMode) => {
@@ -3111,47 +3154,44 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const syncLocalState = () => {
-      setStorageStatus(wordRepository.getStorageStatus());
-      setRevision((value) => value + 1);
+    if (!user) return;
+    const syncFromServer = () => {
+      if (document.visibilityState !== "visible") return;
+      void wordRepository.hydrate(user.id)
+        .then(() => setRevision((value) => value + 1))
+        .catch((error) => handleCloudError(error, "云端数据同步失败，请重试。"));
     };
-    const syncWhenVisible = () => {
-      if (document.visibilityState === "visible") syncLocalState();
-    };
-    const syncFromStorage = (event: StorageEvent) => {
-      if (!event.key || event.key.startsWith("cet-word-mvp-")) syncLocalState();
-    };
-    const syncAfterStorageError = () => setStorageStatus(wordRepository.getStorageStatus());
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") syncLocalState();
-    }, 60_000);
-    window.addEventListener("focus", syncLocalState);
-    window.addEventListener("pageshow", syncLocalState);
-    window.addEventListener("storage", syncFromStorage);
-    window.addEventListener("error", syncAfterStorageError);
-    document.addEventListener("visibilitychange", syncWhenVisible);
+    const timer = window.setInterval(syncFromServer, 60_000);
+    window.addEventListener("focus", syncFromServer);
+    window.addEventListener("pageshow", syncFromServer);
+    document.addEventListener("visibilitychange", syncFromServer);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", syncLocalState);
-      window.removeEventListener("pageshow", syncLocalState);
-      window.removeEventListener("storage", syncFromStorage);
-      window.removeEventListener("error", syncAfterStorageError);
-      document.removeEventListener("visibilitychange", syncWhenVisible);
+      window.removeEventListener("focus", syncFromServer);
+      window.removeEventListener("pageshow", syncFromServer);
+      document.removeEventListener("visibilitychange", syncFromServer);
     };
-  }, []);
+  }, [user?.id]);
 
   const login = async (email: string, password: string) => {
     authProbeRef.current += 1;
     setAuthChecking(false);
-    const nextUser = await apiClient.login(email, password);
-    setUser(nextUser);
-    refresh();
+    setCloudLoading(true);
+    try {
+      const nextUser = await apiClient.login(email, password);
+      setUser(nextUser);
+    } catch (error) {
+      setCloudLoading(false);
+      throw error;
+    }
   };
   const logout = async () => {
     authProbeRef.current += 1;
     setAuthChecking(false);
     await apiClient.logout();
     setUser(null);
+    setCloudLoading(false);
+    setCloudError("");
     refresh();
     window.location.hash = "/";
   };
@@ -3177,6 +3217,16 @@ export default function App() {
   let content: React.ReactNode;
   if (authChecking) {
     content = <AuthChecking />;
+  } else if (user && cloudLoading) {
+    content = <AuthChecking />;
+  } else if (user && cloudError) {
+    content = (
+      <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100" role="alert">
+        <p className="text-sm font-medium text-rose-700">云端数据加载失败</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">{cloudError}</p>
+        <button type="button" className="button-primary mt-5" onClick={refresh}>重新加载</button>
+      </section>
+    );
   } else if (route === "/login") {
     content = <LoginPage user={user} onLogin={login} onLogout={logout} />;
   } else if (!user) {
@@ -3224,7 +3274,7 @@ export default function App() {
       content = <ReviewPage key={`${user.id}-${route}`} user={user} dueWords={dueWords} allWords={words} groupWords={wordRepository.getDailyGroupWords(user.id)} mode={reviewMode} onFinished={refresh} />;
     }
   } else {
-    content = <HomePage user={user} words={words} dueWords={dueWords} onChanged={refresh} onLoadDemo={() => { wordRepository.loadDemoWords(user.id); refresh(); }} />;
+    content = <HomePage user={user} words={words} dueWords={dueWords} onChanged={refresh} onLoadDemo={async () => { await wordRepository.loadDemoWords(user.id); refresh(); }} />;
   }
 
   return <PageShell route={route} user={user} themeMode={themeMode} onThemeChange={changeTheme} storageStatus={storageStatus} onDownloadDamagedData={downloadDamagedData} onStartFresh={startFresh}>{content}</PageShell>;
