@@ -1,15 +1,17 @@
-# CET46 1Panel / Docker 部署材料
+# CET46 部署材料（独立主机 Compose 备用方案）
 
 这些文件只提供可复用的部署骨架，不包含数据库密码、会话密钥、证书或账号密码。
+
+> 现有 1Panel OpenResty 容器的正式方案请使用 [`project/deploy/docker/README.md`](../project/deploy/docker/README.md) 和 [`project/deploy/1panel/openresty.conf.example`](../project/deploy/1panel/openresty.conf.example)。本目录的 Compose 只适用于 API 可以通过宿主机 `127.0.0.1:3000` 被 OpenResty 反代的独立主机场景；不要把它和 1Panel 容器网络方案混用。
 
 ## 生产前提
 
 - 先准备实际域名和可用 HTTPS 证书；`APP_ORIGIN` 必须是该 HTTPS 源地址。
 - `COOKIE_SECURE=true` 只适用于 HTTPS。公网 IP 的 HTTP 临时联调不能算正式登录上线。
 - MySQL 只加入 `cet46_private` 网络，不发布宿主机 3306。
-- API 只绑定宿主机 `127.0.0.1:3000`，由 OpenResty 反代 `/api/`。
+- API 只绑定宿主机 `127.0.0.1:3000`，由运行在宿主机网络命名空间的 OpenResty 反代 `/api/`。
 
-## 在服务器准备
+## 在服务器准备（备用方案）
 
 将仓库中的 `deploy/`、`server/`、`database/` 和根目录 `package.json`、`pnpm-lock.yaml` 放到独立目录，例如 `/opt/cet46/`，然后：
 
