@@ -1,7 +1,7 @@
-# CET 背词站后端（第一批垂直切片）
+# CET 背词站后端（Fastify + MySQL 云端 API）
 
-Node.js + TypeScript + Fastify + MySQL 8 的 API 服务。本批只交付可审查的后端切片：
-前端仍走 `app/src/data/localStore.ts` 的 localStorage 版本，**未接入这个 API**。
+Node.js + TypeScript + Fastify + MySQL 8 的 API 服务。前端通过 `app/src/data/apiClient.ts` 和
+`app/src/data/cloudRepository.ts` 使用本服务：MySQL 是核心学习数据的唯一持久化来源，内存缓存只服务于现有同步渲染组件。
 
 ## 目录
 
@@ -108,7 +108,7 @@ corepack pnpm test                # 前端既有测试，保持不变
 - 连接固定 `utf8mb4`，库表也是 `utf8mb4` / InnoDB。
 - `word_progress.user_id` + `word_id` 通过复合外键指向 `words(user_id, id)`，跨用户挂进度会被数据库直接拒绝。
 
-## OpenResty 反向代理（部署占位，本批未在服务器执行）
+## OpenResty 反向代理（部署占位，生产服务器仍待本轮执行）
 
 线上静态站点仍是 `http://47.108.49.246/`。将来接入 API 时，在站点配置中加入同源 `/api` 反代，
 并且**必须让 `/api/` 的错误回落到 JSON，而不是 SPA 的 `index.html`**：
@@ -142,8 +142,9 @@ HTTPS 与 Cookie 的 `Secure` 标志需要站点先具备可用证书。
 - 草稿 payload 上限 64 KiB；完成批量最多 100 条；事件读取窗口最多最近 5000 条；所有动态数据值使用参数化查询。
 - 本地验证没有 MySQL 测试库，未执行 migration 或真实 SQL 集成测试；不能据此宣称生产数据库或云同步完成。
 
-## 本批明确没有做的事
+## 当前仍未完成的生产工作
 
-- 前端未切换到远程 API（repository/localStore/TSV/复习算法/备份格式都没动）。
-- 没有接入生产数据库，没有迁移任何真实用户数据，没有部署到 1Panel/服务器。
-- 前端仍未切换到远程 API；`review_sessions` / `review_logs` / `import_batches` 等更细粒度业务留到后续批次。
+- 本地前端已经切换到远程 API；`localStore.ts` 只作为历史实现和回归参考，不再是页面的核心数据源。
+- 没有接入生产数据库，没有迁移任何真实用户数据，也没有完成 1Panel/服务器发布；真实 MySQL 集成测试仍需在具备 MySQL 的环境运行。
+- 旧浏览器 localStorage 没有自动迁移流程；可导出词条 JSON 后导入目标账号，导入不会覆盖服务器已有学习进度。
+- `review_sessions` / `review_logs` / `import_batches` 等更细粒度业务不在本期范围内。
