@@ -324,9 +324,17 @@ export function createCloudRepository(client: ApiClient = apiClient) {
     async deleteWords(userId: string, wordIds: string[]): Promise<number> {
       invalidateHydration();
       let deleted = 0;
-      for (const wordId of wordIds) {
-        await client.deleteWord(userId, wordId);
-        deleted += 1;
+      try {
+        for (const wordId of wordIds) {
+          await client.deleteWord(userId, wordId);
+          deleted += 1;
+        }
+      } catch (error) {
+        // Each delete is an independent API request. If a later request fails,
+        // reload the server snapshot before surfacing the error so the UI does
+        // not keep showing words that were already deleted remotely.
+        try { await hydrate(userId); } catch { /* 保留原始失败给页面 */ }
+        throw error;
       }
       await hydrate(userId);
       return deleted;
@@ -402,17 +410,27 @@ export function createCloudRepository(client: ApiClient = apiClient) {
     exportBackup(userId: string): string {
       const current = requireCache(userId);
       return JSON.stringify({
-        format: "cet-word-backup",
+        format: "cet-word-library-backup",
         version: 1,
         exportedAt: new Date().toISOString(),
-        words: current.words,
-        progress: current.words.map((item) => item.progress),
-        learningEvents: current.events,
+        // 这是词库副本，不是账户恢复包；学习阶段、复习历史和用户身份不随文件导出。
+        words: current.words.map(({ word, phonetic, meaning, phrase, sentence, sentenceCn, source, type }) => ({
+          word,
+          phonetic,
+          meaning,
+          phrase,
+          sentence,
+          sentenceCn,
+          source,
+          type,
+        })),
       }, null, 2);
     },
-    async restoreBackup(userId: string, raw: string): Promise<{ restored: number }> {
+    async restoreBackup(userId: string, raw: string): Promise<{ restored: number; added: number; existing: number }> {
       const parsed = JSON.parse(raw) as { format?: unknown; version?: unknown; words?: unknown };
-      if (parsed.format !== "cet-word-backup" || parsed.version !== 1 || !Array.isArray(parsed.words)) {
+      // 接受旧版导出的词条部分，避免用户升级后无法导入手边的旧文件；旧版进度仍会被有意忽略。
+      const supportedFormat = parsed.format === "cet-word-library-backup" || parsed.format === "cet-word-backup";
+      if (!supportedFormat || parsed.version !== 1 || !Array.isArray(parsed.words)) {
         throw new Error("这不是本应用生成的有效备份文件。");
       }
       const input = parsed.words.map((item) => {
@@ -435,7 +453,7 @@ export function createCloudRepository(client: ApiClient = apiClient) {
       if (input.length === 0) throw new Error("备份中没有可恢复的词条。");
       const result = await client.importWords(input);
       await hydrate(userId);
-      return { restored: result.added + result.existing };
+      return { restored: result.added + result.existing, added: result.added, existing: result.existing };
     },
 
     async loadDemoWords(userId: string) {
