@@ -19,12 +19,16 @@ set +a
 mkdir -p "$BACKUP_ROOT/daily" "$BACKUP_ROOT/weekly"
 STAMP="$(date +%Y-%m-%d)"
 TARGET="$BACKUP_ROOT/daily/cet46-$STAMP.sql.gz"
+TEMP="$TARGET.tmp.$$"
+trap 'rm -f "$TEMP"' EXIT HUP INT TERM
 
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T mysql sh -c \
   'export MYSQL_PWD="$MYSQL_PASSWORD"; exec mysqldump --single-transaction --routines --triggers --hex-blob -u"$MYSQL_USER" "$MYSQL_DATABASE"' \
-  | gzip -c > "$TARGET"
+  | gzip -c > "$TEMP"
 
-gzip -t "$TARGET"
+gzip -t "$TEMP"
+mv "$TEMP" "$TARGET"
+trap - EXIT HUP INT TERM
 
 # 周备份单独保留，避免日备份轮换时丢失较长时间点。
 if [ "$(date +%u)" = "7" ]; then
