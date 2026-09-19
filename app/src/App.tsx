@@ -122,6 +122,17 @@ const displayDate = (iso: string | null) => {
   return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(iso));
 };
 
+/** 将所有 API 失败收敛为页面可理解的提示，避免各页面回显不一致的底层错误。 */
+const apiErrorMessage = (error: unknown, fallback: string): string => {
+  if (!(error instanceof ApiError)) return error instanceof Error ? error.message : fallback;
+  if (error.status === 0 || error.code === "network_error") return "网络连接失败，本次操作尚未确认保存。";
+  if (error.status === 401) return "登录状态已过期，请重新登录。";
+  if (error.status === 404) return "词条不存在或已经被删除，请重新加载。";
+  if (error.status === 409 || error.code === "revision_conflict") return "另一设备已经更新了本轮进度，请重新读取后再继续。";
+  if (error.status >= 500) return "服务器暂时异常，数据没有确认保存，请稍后重试。";
+  return error.message || fallback;
+};
+
 const formatToday = (date = new Date()) =>
   new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }).format(date);
 
@@ -161,6 +172,14 @@ const downloadTextFile = (content: string, filename: string, type = "application
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+
+/**
+ * 只用于不影响学习结果的清理操作（例如清掉已完成的旧草稿）。
+ * 所有真正的保存/提交操作都必须由调用方 await 并显示失败状态。
+ */
+const ignoreCleanupFailure = (operation: Promise<unknown>) => {
+  void operation.catch(() => undefined);
 };
 
 function PageShell({
@@ -477,11 +496,13 @@ function HomeStudyIllustration() {
   );
 }
 
-function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: LocalUser; words: WordWithProgress[]; dueWords: WordWithProgress[]; onLoadDemo: () => void; onChanged: () => void }) {
+function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: LocalUser; words: WordWithProgress[]; dueWords: WordWithProgress[]; onLoadDemo: () => Promise<void>; onChanged: () => void }) {
   const [groupsError, setGroupsError] = useState("");
   const [groupWordsError, setGroupWordsError] = useState("");
   const [groupsOpen, setGroupsOpen] = useState(false);
   const [groupWordsOpen, setGroupWordsOpen] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoError, setDemoError] = useState("");
   const [dailyGroups, setDailyGroups] = useState(() => wordRepository.getDailyGroups(user.id));
   const [dailyGroupWords, setDailyGroupWords] = useState(() => wordRepository.getDailyGroupWords(user.id));
   useEffect(() => {
@@ -506,6 +527,19 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
   const countdown = wordRepository.getCountdown(user.id);
   const countdownDescription = countdownText(countdown);
   const statistics = useMemo(() => buildLearningStatistics(words, wordRepository.getLearningEvents(user.id)), [user.id, words]);
+
+  const handleLoadDemo = async () => {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    setDemoError("");
+    try {
+      await onLoadDemo();
+    } catch (error) {
+      setDemoError(error instanceof Error ? error.message : "示例词导入失败，请稍后重试。");
+    } finally {
+      setDemoBusy(false);
+    }
+  };
 
   return (
     <div className={`home-page ${words.length > 0 ? "home-page--focused" : ""}`}>
@@ -592,8 +626,9 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
           <p className="mt-1 text-sm leading-6 text-slate-500">导入自己的 TSV，或加载 3 个示例词体验完整流程。</p>
           <div className="mt-4 flex gap-3">
             <a href="#/import" className="button-secondary">去导入</a>
-            <button type="button" onClick={onLoadDemo} className="button-quiet">加载示例</button>
+            <button type="button" onClick={() => void handleLoadDemo()} disabled={demoBusy} className="button-quiet">{demoBusy ? "导入中…" : "加载示例"}</button>
           </div>
+          {demoError && <p role="alert" className="mt-3 text-sm text-rose-600">{demoError}</p>}
         </section>
       )}
       {groupsOpen && (
@@ -610,8 +645,8 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
               setGroupsError("");
               setGroupsOpen(false);
               onChanged();
-            } catch {
-              setGroupsError("组数未能保存，请检查浏览器存储空间后重试。");
+            } catch (error) {
+              setGroupsError(apiErrorMessage(error, "组数未能保存，请检查网络和服务器状态后重试。"));
             }
           }}
         />
@@ -629,8 +664,8 @@ function HomePage({ user, words, dueWords, onLoadDemo, onChanged }: { user: Loca
               setGroupWordsError("");
               setGroupWordsOpen(false);
               onChanged();
-            } catch {
-              setGroupWordsError("每组词数未能保存，请检查浏览器存储空间后重试。");
+            } catch (error) {
+              setGroupWordsError(apiErrorMessage(error, "每组词数未能保存，请检查网络和服务器状态后重试。"));
             }
           }}
         />
@@ -769,15 +804,20 @@ function AccountSettingsModal({ user, onCancel, onSaved }: { user: LocalUser; on
     avatar: user.avatar ?? AVATAR_OPTIONS[0],
   });
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       onSaved(await apiClient.updateProfile({
         username: profile.username.trim(),
         avatar: profile.avatar.trim() || null,
       }));
     } catch (saveError) {
-      setError(saveError instanceof ApiError ? saveError.message : "账号资料保存失败，请检查网络后重试。");
+      setError(apiErrorMessage(saveError, "账号资料保存失败，请检查网络后重试。"));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -804,7 +844,7 @@ function AccountSettingsModal({ user, onCancel, onSaved }: { user: LocalUser; on
             <h2 id="account-settings-title" className="mt-1 text-2xl font-bold tracking-tight">账号设置</h2>
             <p id="account-settings-description" className="sr-only">修改服务器账号的头像和用户名。</p>
           </div>
-          <button type="button" onClick={onCancel} className="button-quiet px-3 text-sm" aria-label="关闭账号设置">关闭</button>
+          <button type="button" onClick={onCancel} disabled={saving} className="button-quiet px-3 text-sm" aria-label="关闭账号设置">关闭</button>
         </div>
 
         <div className="mt-6">
@@ -820,6 +860,7 @@ function AccountSettingsModal({ user, onCancel, onSaved }: { user: LocalUser; on
                 aria-label={`头像 ${index + 1}`}
                 tabIndex={profile.avatar === avatar ? 0 : -1}
                 onClick={() => setProfile((current) => ({ ...current, avatar }))}
+                disabled={saving}
                 onKeyDown={(event) => handleAvatarKeyDown(event, index)}
                 className={`avatar-option grid aspect-square place-items-center rounded-2xl text-2xl ${profile.avatar === avatar ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500" : "bg-blue-50 text-slate-500"}`}
               >
@@ -835,6 +876,7 @@ function AccountSettingsModal({ user, onCancel, onSaved }: { user: LocalUser; on
             value={profile.username}
             maxLength={24}
             onChange={(event) => setProfile((current) => ({ ...current, username: event.target.value }))}
+            disabled={saving}
             className="input mt-2"
             placeholder="输入你的用户名"
           />
@@ -856,8 +898,8 @@ function AccountSettingsModal({ user, onCancel, onSaved }: { user: LocalUser; on
 
         {error && <p role="alert" className="mt-4 text-sm text-rose-600">{error}</p>}
         <div className="mt-6 flex gap-3">
-          <button type="button" onClick={onCancel} className="button-secondary flex-1">取消</button>
-          <button type="button" onClick={() => void save()} className="button-primary flex-1">保存资料</button>
+          <button type="button" onClick={onCancel} disabled={saving} className="button-secondary flex-1">取消</button>
+          <button type="button" onClick={() => void save()} disabled={saving} className="button-primary flex-1">{saving ? "保存中…" : "保存资料"}</button>
         </div>
       </section>
     </div>
@@ -868,7 +910,7 @@ function formatDateValue(year: number, month: number, day: number) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: string; label: string; value: number; options: number[]; suffix: string; onChange: (value: number) => void }) {
+function DateWheelColumn({ id, label, value, options, suffix, onChange, disabled = false }: { id: string; label: string; value: number; options: number[]; suffix: string; onChange: (value: number) => void; disabled?: boolean }) {
   const wheelRef = useRef<HTMLDivElement>(null);
   const itemHeight = 44;
 
@@ -878,12 +920,14 @@ function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: 
   }, [options, value]);
 
   const selectOption = (option: number, behavior: ScrollBehavior = "smooth") => {
+    if (disabled) return;
     onChange(option);
     const index = options.indexOf(option);
     wheelRef.current?.scrollTo({ top: index * itemHeight, behavior });
   };
 
   const handleScroll = () => {
+    if (disabled) return;
     const wheel = wheelRef.current;
     if (!wheel) return;
     const index = Math.max(0, Math.min(options.length - 1, Math.round(wheel.scrollTop / itemHeight)));
@@ -891,6 +935,7 @@ function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: 
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
     const currentIndex = Math.max(0, options.indexOf(value));
     let nextIndex = currentIndex;
     if (event.key === "ArrowDown" || event.key === "PageDown") nextIndex = Math.min(options.length - 1, currentIndex + 1);
@@ -911,6 +956,7 @@ function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: 
         aria-label={label}
         aria-activedescendant={`${id}-${value}`}
         tabIndex={0}
+        aria-disabled={disabled}
         onScroll={handleScroll}
         onKeyDown={handleKeyDown}
       >
@@ -922,6 +968,7 @@ function DateWheelColumn({ id, label, value, options, suffix, onChange }: { id: 
             role="option"
             aria-selected={option === value}
             tabIndex={-1}
+            disabled={disabled}
             className={`date-wheel-option ${option === value ? "is-selected" : ""}`}
             onClick={() => selectOption(option)}
           >
@@ -940,6 +987,7 @@ function CountdownSettingsModal({ value, onCancel, onSaved }: { value: Countdown
   const defaultDate = formatDateValue(now.getFullYear(), now.getMonth() + 1, now.getDate());
   const [targetDate, setTargetDate] = useState(value?.targetDate ?? defaultDate);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [selectedYear, selectedMonth, selectedDay] = targetDate.split("-").map(Number);
   const yearOptions = useMemo(() => Array.from({ length: 101 }, (_, index) => 2000 + index), []);
   const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
@@ -953,18 +1001,26 @@ function CountdownSettingsModal({ value, onCancel, onSaved }: { value: Countdown
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       await onSaved({ label, targetDate });
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "倒数日保存失败，请重试。");
+      setError(apiErrorMessage(saveError, "倒数日保存失败，请重试。"));
+    } finally {
+      setSaving(false);
     }
   };
 
   const clear = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       await onSaved(null);
     } catch (clearError) {
-      setError(clearError instanceof Error ? clearError.message : "倒数日清除失败，请重试。");
+      setError(apiErrorMessage(clearError, "倒数日清除失败，请重试。"));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -977,27 +1033,27 @@ function CountdownSettingsModal({ value, onCancel, onSaved }: { value: Countdown
             <h2 id="countdown-settings-title" className="mt-1 text-2xl font-bold tracking-tight">设置倒数日</h2>
             <p id="countdown-settings-description" className="mt-2 text-sm leading-6 text-slate-500">例如“六级考试”“雅思考试”或“考研初试”。剩余天数会按本地日期每天更新。</p>
           </div>
-          <button type="button" onClick={onCancel} className="button-quiet px-3 text-sm" aria-label="关闭倒数日设置">关闭</button>
+          <button type="button" onClick={onCancel} disabled={saving} className="button-quiet px-3 text-sm" aria-label="关闭倒数日设置">关闭</button>
         </div>
         <form className="mt-6 space-y-4" onSubmit={save}>
           <label className="block text-sm font-semibold">
             目标名称
-            <input value={label} maxLength={32} onChange={(event) => setLabel(event.target.value)} className="input mt-2" placeholder="例如：六级考试" autoComplete="off" />
+            <input value={label} maxLength={32} onChange={(event) => setLabel(event.target.value)} disabled={saving} className="input mt-2" placeholder="例如：六级考试" autoComplete="off" />
           </label>
           <fieldset className="countdown-date-fieldset">
             <legend className="text-sm font-semibold">目标日期</legend>
             <div className="countdown-date-wheel" aria-label={`目标日期：${selectedYear}年${selectedMonth}月${selectedDay}日`}>
               <div className="date-wheel-selection" aria-hidden="true" />
-              <DateWheelColumn id="countdown-year" label="选择年份" value={selectedYear} options={yearOptions} suffix="年" onChange={(year) => updateDatePart(year, selectedMonth, selectedDay)} />
-              <DateWheelColumn id="countdown-month" label="选择月份" value={selectedMonth} options={monthOptions} suffix="月" onChange={(month) => updateDatePart(selectedYear, month, selectedDay)} />
-              <DateWheelColumn id="countdown-day" label="选择日期" value={selectedDay} options={dayOptions} suffix="日" onChange={(day) => updateDatePart(selectedYear, selectedMonth, day)} />
+              <DateWheelColumn id="countdown-year" label="选择年份" value={selectedYear} options={yearOptions} suffix="年" disabled={saving} onChange={(year) => updateDatePart(year, selectedMonth, selectedDay)} />
+              <DateWheelColumn id="countdown-month" label="选择月份" value={selectedMonth} options={monthOptions} suffix="月" disabled={saving} onChange={(month) => updateDatePart(selectedYear, month, selectedDay)} />
+              <DateWheelColumn id="countdown-day" label="选择日期" value={selectedDay} options={dayOptions} suffix="日" disabled={saving} onChange={(day) => updateDatePart(selectedYear, selectedMonth, day)} />
             </div>
           </fieldset>
           {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
-          {value && <button type="button" onClick={clear} className="button-quiet w-full text-sm text-rose-600">清除倒数日</button>}
+          {value && <button type="button" onClick={() => void clear()} disabled={saving} className="button-quiet w-full text-sm text-rose-600">{saving ? "保存中…" : "清除倒数日"}</button>}
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={onCancel} className="button-secondary">取消</button>
-            <button type="submit" className="button-primary">保存</button>
+            <button type="button" onClick={onCancel} disabled={saving} className="button-secondary">取消</button>
+            <button type="submit" disabled={saving} className="button-primary">{saving ? "保存中…" : "保存"}</button>
           </div>
         </form>
       </section>
@@ -1005,12 +1061,13 @@ function CountdownSettingsModal({ value, onCancel, onSaved }: { value: Countdown
   );
 }
 
-function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSave }: { value: number; groupWords: number; wordCount: number; error: string; onCancel: () => void; onSave: (value: number) => void }) {
+function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSave }: { value: number; groupWords: number; wordCount: number; error: string; onCancel: () => void; onSave: (value: number) => void | Promise<void> }) {
   const { dialogRef, onBackdropPointerDown } = useModalDialog(onCancel);
   const [selected, setSelected] = useState(value);
   const options = Array.from({ length: 20 }, (_, index) => index + 1);
   const wheelRef = useRef<HTMLDivElement>(null);
   const wheelItemHeight = 52;
+  const [saving, setSaving] = useState(false);
   const completionDays = (groups: number) => wordCount === 0 ? 0 : Math.ceil(wordCount / (groups * groupWords));
 
   useEffect(() => {
@@ -1032,6 +1089,7 @@ function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSav
   };
 
   const handleWheelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (saving) return;
     let next = selected;
     if (event.key === "ArrowDown" || event.key === "PageDown") next = Math.min(options.length, selected + 1);
     else if (event.key === "ArrowUp" || event.key === "PageUp") next = Math.max(1, selected - 1);
@@ -1042,6 +1100,16 @@ function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSav
     selectOption(next, "auto");
   };
 
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(selected);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="modal-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="daily-groups-title" aria-describedby="daily-groups-description" onPointerDown={onBackdropPointerDown}>
       <section ref={dialogRef} tabIndex={-1} className="modal-panel max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
@@ -1050,7 +1118,7 @@ function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSav
             <p className="text-sm font-medium text-blue-700">调整每日学习计划</p>
             <h2 id="daily-groups-title" className="mt-1 text-2xl font-bold tracking-tight">调整计划</h2>
           </div>
-          <button type="button" onClick={onCancel} className="button-quiet px-3 text-sm" aria-label="关闭设置">关闭</button>
+          <button type="button" onClick={onCancel} disabled={saving} className="button-quiet px-3 text-sm" aria-label="关闭设置">关闭</button>
         </div>
         <p id="daily-groups-description" className="mt-3 text-sm leading-6 text-slate-500">每组按 {groupWords} 个词计算，到期旧词优先安排；右侧天数按当前词库 {wordCount} 个词估算。</p>
         <div className="mt-5 grid grid-cols-2 border-b border-slate-200 px-4 pb-3 text-center text-sm font-semibold text-slate-700">
@@ -1077,6 +1145,7 @@ function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSav
                 key={option}
                 id={`daily-groups-option-${option}`}
                 onClick={() => selectOption(option)}
+                disabled={saving}
                 tabIndex={-1}
                 className={`wheel-option grid h-[52px] w-full snap-center grid-cols-2 items-center px-4 text-center ${selected === option ? "text-2xl font-bold text-blue-900" : "text-lg font-medium text-slate-400"}`}
                 role="option"
@@ -1090,18 +1159,19 @@ function DailyGroupsModal({ value, groupWords, wordCount, error, onCancel, onSav
         </div>
         <p className="mt-4 text-center text-sm text-slate-500">每天 {selected} 组，共 {selected * groupWords} 个词，预计 {completionDays(selected)} 天完成当前词库。</p>
         {error && <p role="alert" className="mt-3 text-sm text-rose-600">{error}</p>}
-        <button type="button" onClick={() => onSave(selected)} className="button-primary mt-5 w-full">保存计划</button>
+        <button type="button" onClick={() => void save()} disabled={saving} className="button-primary mt-5 w-full">{saving ? "保存中…" : "保存计划"}</button>
       </section>
     </div>
   );
 }
 
-function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { value: number; groups: number; error: string; onCancel: () => void; onSave: (value: number) => void }) {
+function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { value: number; groups: number; error: string; onCancel: () => void; onSave: (value: number) => void | Promise<void> }) {
   const { dialogRef, onBackdropPointerDown } = useModalDialog(onCancel);
   const [selected, setSelected] = useState(value);
   const options = Array.from({ length: 20 }, (_, index) => index + 1);
   const wheelRef = useRef<HTMLDivElement>(null);
   const wheelItemHeight = 52;
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const wheel = wheelRef.current;
@@ -1122,6 +1192,7 @@ function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { valu
   };
 
   const handleWheelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (saving) return;
     let next = selected;
     if (event.key === "ArrowDown" || event.key === "PageDown") next = Math.min(options.length, selected + 1);
     else if (event.key === "ArrowUp" || event.key === "PageUp") next = Math.max(1, selected - 1);
@@ -1132,6 +1203,16 @@ function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { valu
     selectOption(next, "auto");
   };
 
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(selected);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="modal-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="daily-group-words-title" aria-describedby="daily-group-words-description" onPointerDown={onBackdropPointerDown}>
       <section ref={dialogRef} tabIndex={-1} className="modal-panel max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
@@ -1140,7 +1221,7 @@ function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { valu
             <p className="text-sm font-medium text-blue-700">调整每日学习计划</p>
             <h2 id="daily-group-words-title" className="mt-1 text-2xl font-bold tracking-tight">调整每组词数</h2>
           </div>
-          <button type="button" onClick={onCancel} className="button-quiet px-3 text-sm" aria-label="关闭设置">关闭</button>
+          <button type="button" onClick={onCancel} disabled={saving} className="button-quiet px-3 text-sm" aria-label="关闭设置">关闭</button>
         </div>
         <p id="daily-group-words-description" className="mt-3 text-sm leading-6 text-slate-500">每组可设置 1—20 个词；当前每天 {groups} 组，调整后今日上限为 {groups * selected} 个词。</p>
         <div className="mt-5 border-b border-slate-200 px-4 pb-3 text-center text-sm font-semibold text-slate-700">
@@ -1166,6 +1247,7 @@ function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { valu
                 key={option}
                 id={`daily-group-words-option-${option}`}
                 onClick={() => selectOption(option)}
+                disabled={saving}
                 tabIndex={-1}
                 className={`wheel-option grid h-[52px] w-full snap-center grid-cols-1 items-center px-4 text-center ${selected === option ? "text-2xl font-bold text-blue-900" : "text-lg font-medium text-slate-400"}`}
                 role="option"
@@ -1178,13 +1260,13 @@ function DailyGroupWordsModal({ value, groups, error, onCancel, onSave }: { valu
         </div>
         <p className="mt-4 text-center text-sm text-slate-500">每天 {groups} 组，每组 {selected} 个，共 {groups * selected} 个词。</p>
         {error && <p role="alert" className="mt-3 text-sm text-rose-600">{error}</p>}
-        <button type="button" onClick={() => onSave(selected)} className="button-primary mt-5 w-full">保存计划</button>
+        <button type="button" onClick={() => void save()} disabled={saving} className="button-primary mt-5 w-full">{saving ? "保存中…" : "保存计划"}</button>
       </section>
     </div>
   );
 }
 
-function LoginPage({ user, onLogin, onLogout }: { user: LocalUser | null; onLogin: (email: string, password: string) => Promise<void>; onLogout: () => Promise<void> }) {
+function LoginPage({ user, onLogin, onLogout, notice = "" }: { user: LocalUser | null; onLogin: (email: string, password: string) => Promise<void>; onLogout: () => Promise<void>; notice?: string }) {
   const [email, setEmail] = useState(user?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -1195,6 +1277,9 @@ function LoginPage({ user, onLogin, onLogout }: { user: LocalUser | null; onLogi
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+  useEffect(() => {
+    if (notice) setError(notice);
+  }, [notice]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1216,7 +1301,7 @@ function LoginPage({ user, onLogin, onLogout }: { user: LocalUser | null; onLogi
       window.location.hash = "/";
     } catch (loginError) {
       if (!mountedRef.current) return;
-      setError(loginError instanceof ApiError ? loginError.message : "登录失败，请稍后重试。");
+      setError(apiErrorMessage(loginError, "登录失败，请稍后重试。"));
     } finally {
       if (mountedRef.current) setBusy(null);
     }
@@ -1230,7 +1315,7 @@ function LoginPage({ user, onLogin, onLogout }: { user: LocalUser | null; onLogi
       await onLogout();
     } catch (logoutError) {
       if (!mountedRef.current) return;
-      setError(logoutError instanceof ApiError ? logoutError.message : "退出登录失败，请稍后重试。");
+      setError(apiErrorMessage(logoutError, "退出登录失败，请稍后重试。"));
     } finally {
       if (mountedRef.current) setBusy(null);
     }
@@ -1297,6 +1382,7 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
   const [value, setValue] = useState("");
   const [message, setMessage] = useState("");
   const [promptCopied, setPromptCopied] = useState(false);
+  const [importBusy, setImportBusy] = useState<"batch" | "manual" | null>(null);
   const [manual, setManual] = useState<WordInput>({
     word: "", phonetic: "", meaning: "", phrase: "", sentence: "", sentenceCn: "", source: "", type: "marked",
   });
@@ -1306,19 +1392,24 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
   const placeholder = "word\tphonetic\tmeaning\tphrase\tsentence\tsentence_cn\tsource\ttype";
 
   const confirmImport = async () => {
+    if (importBusy) return;
     if (parsed.errors.length > 0 || parsed.rows.length === 0) return;
+    setImportBusy("batch");
     try {
       const result = await wordRepository.importWords(user.id, parsed.rows);
       setMessage(`已完成导入：新增 ${result.added} 个，更新已有 ${result.existing} 个；原有学习进度没有被重置。`);
       setValue("");
       onImported();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "导入失败，请检查网络和服务器状态。");
+      setMessage(apiErrorMessage(error, "导入失败，请检查网络和服务器状态。"));
+    } finally {
+      setImportBusy(null);
     }
   };
 
   const addManualWord = async (event: FormEvent) => {
     event.preventDefault();
+    if (importBusy) return;
     const word = manual.word.trim().toLowerCase();
     if (!word) {
       setMessage("请先填写英文单词。");
@@ -1339,13 +1430,16 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
     const cleanedManual = Object.fromEntries(
       Object.entries({ ...manual, word }).map(([key, fieldValue]) => [key, typeof fieldValue === "string" ? fieldValue.trim() : fieldValue]),
     ) as WordInput;
+    setImportBusy("manual");
     try {
       const result = await wordRepository.importWords(user.id, [cleanedManual]);
       setMessage(result.added ? `已添加 ${word}，现在会进入今日学习任务。` : `已更新 ${word}；原有学习进度没有被重置。`);
       setManual({ word: "", phonetic: "", meaning: "", phrase: "", sentence: "", sentenceCn: "", source: "", type: "marked" });
       onImported();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "添加失败，请检查网络和服务器状态。");
+      setMessage(apiErrorMessage(error, "添加失败，请检查网络和服务器状态。"));
+    } finally {
+      setImportBusy(null);
     }
   };
 
@@ -1494,7 +1588,7 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
                       ))}
                     </div>
                   </div>
-                  <button type="button" onClick={confirmImport} className="button-primary w-full">确认导入 {parsed.rows.length} 个词</button>
+                  <button type="button" onClick={() => void confirmImport()} disabled={importBusy !== null} className="button-primary w-full">{importBusy === "batch" ? "导入中…" : `确认导入 ${parsed.rows.length} 个词`}</button>
                 </>
               )}
             </section>
@@ -1518,7 +1612,7 @@ function ImportPage({ user, words, onImported }: { user: LocalUser; words: WordW
               <button type="button" onClick={() => setManualField("type", "added")} className={`tap-feedback min-h-11 rounded-xl text-sm font-medium ring-1 ${manual.type === "added" ? "bg-blue-50 text-blue-800 ring-blue-300" : "bg-white text-slate-600 ring-stone-200"}`}>AI 补充</button>
             </div>
           </div>
-          <button type="submit" className="button-primary w-full">添加到今日学习</button>
+          <button type="submit" disabled={importBusy !== null} className="button-primary w-full">{importBusy === "manual" ? "添加中…" : "添加到今日学习"}</button>
         </form>
       )}
 
@@ -1538,6 +1632,7 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   const [pendingKill, setPendingKill] = useState<WordWithProgress | null>(null);
   const [dataMessage, setDataMessage] = useState("");
   const [editing, setEditing] = useState<{ id: string; phonetic: string; meaning: string } | null>(null);
+  const [mutationBusy, setMutationBusy] = useState<string | null>(null);
   const [batchManaging, setBatchManaging] = useState(false);
   const [selectedWordIds, setSelectedWordIds] = useState<Set<string>>(() => new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
@@ -1572,7 +1667,9 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   const selectionScopeLabel = keyword.trim() ? "当前搜索结果" : `当前${wordListFilterLabels[stateFilter]}分组`;
 
   const remove = async (item: WordWithProgress) => {
+    if (mutationBusy) return;
     if (!window.confirm(`确定删除 “${item.word}” 吗？该词的学习进度也会一并删除。`)) return;
+    setMutationBusy(`delete:${item.id}`);
     try {
       await wordRepository.deleteWord(user.id, item.id);
       setUndoWord(null);
@@ -1583,7 +1680,10 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       });
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "删除失败，请检查网络和服务器状态。");
+      setDataMessage(apiErrorMessage(error, "删除失败，请检查网络和服务器状态。"));
+      if (error instanceof ApiError && error.status === 404) onChanged();
+    } finally {
+      setMutationBusy(null);
     }
   };
 
@@ -1592,8 +1692,10 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   };
 
   const confirmKill = async () => {
+    if (mutationBusy) return;
     const item = pendingKill;
     if (!item) return;
+    setMutationBusy(`kill:${item.id}`);
     try {
       if (!await wordRepository.killWord(user.id, item.id)) return;
       setUndoWord({ id: item.id, word: item.word });
@@ -1601,28 +1703,41 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       setOpenId(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "斩词失败，请检查网络和服务器状态。");
+      setDataMessage(apiErrorMessage(error, "斩词失败，请检查网络和服务器状态。"));
+      if (error instanceof ApiError && error.status === 404) onChanged();
+    } finally {
+      setMutationBusy(null);
     }
   };
 
   const restore = async (item: WordWithProgress) => {
+    if (mutationBusy) return;
+    setMutationBusy(`restore:${item.id}`);
     try {
       if (!await wordRepository.restoreWord(user.id, item.id)) return;
       setUndoWord(null);
       setOpenId(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "恢复失败，请检查网络和服务器状态。");
+      setDataMessage(apiErrorMessage(error, "恢复失败，请检查网络和服务器状态。"));
+      if (error instanceof ApiError && error.status === 404) onChanged();
+    } finally {
+      setMutationBusy(null);
     }
   };
 
   const undoKill = async () => {
+    if (mutationBusy) return;
+    setMutationBusy("undo-kill");
     try {
       if (!undoWord || !await wordRepository.undoKillWord(user.id, undoWord.id)) return;
       setUndoWord(null);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "撤销失败，请检查网络和服务器状态。");
+      setDataMessage(apiErrorMessage(error, "撤销失败，请检查网络和服务器状态。"));
+      if (error instanceof ApiError && error.status === 404) onChanged();
+    } finally {
+      setMutationBusy(null);
     }
   };
 
@@ -1651,8 +1766,8 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   };
 
   const downloadBackup = () => {
-    downloadTextFile(wordRepository.exportBackup(user.id), `cet-word-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    setDataMessage(`已导出 ${words.length} 个词的云端数据备份文件。`);
+    downloadTextFile(wordRepository.exportBackup(user.id), `cet-word-library-${new Date().toISOString().slice(0, 10)}.json`);
+    setDataMessage(`已导出 ${words.length} 个词的词库文件；学习阶段和复习历史由服务器数据库保存。`);
   };
 
   const downloadEditableTsv = () => {
@@ -1689,6 +1804,8 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
   };
 
   const confirmBatchDelete = async () => {
+    if (mutationBusy) return;
+    setMutationBusy("batch-delete");
     try {
       const deleted = await wordRepository.deleteWords(user.id, [...selectedWordIds]);
       setBatchDeleteOpen(false);
@@ -1703,26 +1820,45 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       setDataMessage(`已永久删除 ${deleted} 个词及其学习进度。`);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "批量删除失败，请检查网络和服务器状态。");
+      setDataMessage(apiErrorMessage(error, "批量删除失败，请检查网络和服务器状态。"));
+      if (error instanceof ApiError && error.status === 404) onChanged();
+    } finally {
+      setMutationBusy(null);
     }
   };
 
   const restoreBackup = async (file: File | undefined) => {
+    if (mutationBusy) return;
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       setDataMessage("备份文件超过 5 MB，已停止读取。");
       return;
     }
+    setMutationBusy("restore-backup");
     try {
       const raw = await file.text();
-      if (!window.confirm("恢复备份会把备份中的词条导入当前服务器账号；已有云端学习进度不会被覆盖。确定继续吗？")) return;
+      let preview = "词库文件内容将先经过格式校验。";
+      try {
+        const parsed = JSON.parse(raw) as { words?: unknown };
+        const incomingNames = Array.isArray(parsed.words)
+          ? [...new Set(parsed.words.flatMap((item) => item && typeof item === "object" && typeof (item as { word?: unknown }).word === "string" ? [(item as { word: string }).word.trim().toLowerCase()] : []))]
+          : [];
+        const existingNames = new Set(words.map((item) => item.word.trim().toLowerCase()));
+        const existing = incomingNames.filter((name) => existingNames.has(name)).length;
+        preview = `共检测到 ${incomingNames.length} 个词\n预计新增：${incomingNames.length - existing}\n已存在：${existing}\n\n已有词条的学习进度不会重置。确定导入词库吗？`;
+      } catch {
+        // 交给仓库做完整格式校验，并在下方统一显示受控错误。
+      }
+      if (!window.confirm(preview)) return;
       const result = await wordRepository.restoreBackup(user.id, raw);
       setUndoWord(null);
       setOpenId(null);
-      setDataMessage(`词条导入完成：共处理 ${result.restored} 个词；已有云端学习进度保持不变。`);
+      setDataMessage(`词库导入完成：新增 ${result.added} 个，已存在 ${result.existing} 个；已有云端学习进度保持不变。`);
       onChanged();
     } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : "备份恢复失败，请检查文件。");
+      setDataMessage(apiErrorMessage(error, "备份恢复失败，请检查文件。"));
+    } finally {
+      setMutationBusy(null);
     }
   };
 
@@ -1762,14 +1898,14 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       </section>
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-white p-4">
         <div>
-          <p className="text-sm font-semibold">云端数据备份</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">服务器数据已跨设备保存；导出的 JSON 可用于保留词条副本或重新导入。</p>
+          <p className="text-sm font-semibold">词库导出与导入</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">JSON 只包含单词内容，不包含学习阶段、复习历史或账号身份；核心学习数据由服务器数据库备份保护。</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={downloadBackup} className="button-secondary px-3 text-sm">导出备份</button>
-          <label className="button-quiet cursor-pointer px-3 text-sm">
-            恢复备份
-            <input type="file" accept=".json,application/json" className="sr-only" onChange={(event) => { void restoreBackup(event.target.files?.[0]); event.target.value = ""; }} />
+          <button type="button" onClick={downloadBackup} disabled={mutationBusy !== null} className="button-secondary px-3 text-sm">导出词库</button>
+          <label className={`button-quiet cursor-pointer px-3 text-sm ${mutationBusy !== null ? "pointer-events-none opacity-60" : ""}`}>
+            {mutationBusy === "restore-backup" ? "导入中…" : "导入词库"}
+            <input type="file" accept=".json,application/json" disabled={mutationBusy !== null} className="sr-only" onChange={(event) => { void restoreBackup(event.target.files?.[0]); event.target.value = ""; }} />
           </label>
         </div>
         {automaticBackup && (
@@ -1838,7 +1974,7 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
       {undoWord && (
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-100">
           <span><strong>{undoWord.word}</strong> 已斩，不再进入每日复习。</span>
-          <button type="button" onClick={undoKill} className="inline-flex min-h-11 shrink-0 items-center font-semibold text-blue-700 underline underline-offset-4">撤销</button>
+          <button type="button" onClick={() => void undoKill()} disabled={mutationBusy !== null} className="inline-flex min-h-11 shrink-0 items-center font-semibold text-blue-700 underline underline-offset-4">{mutationBusy === "undo-kill" ? "撤销中…" : "撤销"}</button>
         </div>
       )}
       <p className="text-sm text-slate-500">显示 {filtered.length} 个结果</p>
@@ -1918,13 +2054,16 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
                   {editing?.id === item.id ? (
                     <form className="space-y-3 rounded-xl bg-blue-50 p-3" onSubmit={async event => {
                       event.preventDefault();
+                      if (mutationBusy) return;
+                      setMutationBusy(`update:${item.id}`);
                       try { await wordRepository.updateWord(user.id, item.id, editing.phonetic, editing.meaning); setEditing(null); setDataMessage("音标和释义已更新，学习进度保持不变。"); onChanged(); }
-                      catch (error) { setDataMessage(error instanceof Error ? error.message : "保存失败"); }
+                      catch (error) { setDataMessage(apiErrorMessage(error, "保存失败，请检查网络和服务器状态。")); if (error instanceof ApiError && error.status === 404) onChanged(); }
+                      finally { setMutationBusy(null); }
                     }}>
-                      <label className="block">IPA 音标<input required className="input" value={editing.phonetic} onChange={event => setEditing({ ...editing, phonetic: event.target.value })} /></label>
-                      <label className="block">中文释义<input required className="input" value={editing.meaning} onChange={event => setEditing({ ...editing, meaning: event.target.value })} /></label>
-                      <button className="button-primary" type="submit">保存修改</button>
-                      <button className="button-quiet" type="button" onClick={() => setEditing(null)}>取消</button>
+                      <label className="block">IPA 音标<input required disabled={mutationBusy !== null} className="input" value={editing.phonetic} onChange={event => setEditing({ ...editing, phonetic: event.target.value })} /></label>
+                      <label className="block">中文释义<input required disabled={mutationBusy !== null} className="input" value={editing.meaning} onChange={event => setEditing({ ...editing, meaning: event.target.value })} /></label>
+                      <button className="button-primary" disabled={mutationBusy !== null} type="submit">{mutationBusy === `update:${item.id}` ? "保存中…" : "保存修改"}</button>
+                      <button className="button-quiet" disabled={mutationBusy !== null} type="button" onClick={() => setEditing(null)}>取消</button>
                     </form>
                   ) : <button type="button" className="button-secondary" onClick={() => setEditing({ id: item.id, phonetic: item.phonetic, meaning: item.meaning })}>编辑音标与释义</button>}
                   <div>
@@ -1945,12 +2084,12 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button type="button" onClick={() => speakWord(item.word)} className="tap-feedback inline-flex min-h-11 items-center rounded-xl bg-blue-50 px-3 text-sm font-medium text-blue-700">🔊 播放发音</button>
                     {state === "killed" ? (
-                      <button type="button" onClick={() => restore(item)} className="tap-feedback inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 text-sm font-semibold text-white">恢复复习</button>
+                      <button type="button" onClick={() => void restore(item)} disabled={mutationBusy !== null} className="tap-feedback inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 text-sm font-semibold text-white">{mutationBusy === `restore:${item.id}` ? "恢复中…" : "恢复复习"}</button>
                     ) : (
-                      <button type="button" onClick={() => kill(item)} className="tap-feedback inline-flex min-h-11 items-center rounded-xl bg-amber-100 px-3 text-sm font-semibold text-amber-950">斩掉这个词</button>
+                      <button type="button" onClick={() => kill(item)} disabled={mutationBusy !== null} className="tap-feedback inline-flex min-h-11 items-center rounded-xl bg-amber-100 px-3 text-sm font-semibold text-amber-950">斩掉这个词</button>
                     )}
                   </div>
-                  <button type="button" onClick={() => remove(item)} className="inline-flex min-h-11 items-center text-sm font-medium text-rose-600 underline underline-offset-4">永久删除这个词</button>
+                  <button type="button" onClick={() => void remove(item)} disabled={mutationBusy !== null} className="inline-flex min-h-11 items-center text-sm font-medium text-rose-600 underline underline-offset-4">{mutationBusy === `delete:${item.id}` ? "删除中…" : "永久删除这个词"}</button>
                 </div>
               )}
             </article>
@@ -1978,10 +2117,11 @@ function WordsPage({ user, words, todayWords, onChanged }: { user: LocalUser; wo
           </a>
         </aside>
       )}
-      {pendingKill && <KillConfirmModal word={pendingKill.word} onCancel={() => setPendingKill(null)} onConfirm={confirmKill} />}
+      {pendingKill && <KillConfirmModal word={pendingKill.word} busy={mutationBusy !== null} onCancel={() => setPendingKill(null)} onConfirm={confirmKill} />}
       {batchDeleteOpen && (
         <BatchDeleteConfirmModal
           count={selectedWordIds.size}
+          busy={mutationBusy === "batch-delete"}
           onCancel={() => setBatchDeleteOpen(false)}
           onConfirm={confirmBatchDelete}
         />
@@ -2004,7 +2144,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
     const freshItems = newWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
     const storedDraft = wordRepository.getReviewDraft(user.id);
     if (!storedDraft || storedDraft.mode !== "new" || storedDraft.phase !== "learning") {
-      if (storedDraft?.mode === "new") void wordRepository.clearReviewDraft(user.id);
+      if (storedDraft?.mode === "new") ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
 
@@ -2017,7 +2157,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
       .map((wordId) => byId.get(wordId))
       .filter((item): item is WordWithProgress => Boolean(item));
     if (savedItems.length === 0) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
     const savedIndex = storedDraft.currentWordId
@@ -2033,19 +2173,20 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
   const [phase, setPhase] = useState<NewStudyPhase>("ready");
   const [index, setIndex] = useState(0);
   const [completion, setCompletion] = useState<{ completed: number; earliestNextReviewAt: string | null } | null>(null);
+  const [completionSaving, setCompletionSaving] = useState(false);
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingStudy = useRef(false);
   const current = items[index] ?? items[0];
 
   useEffect(() => {
     if (phase === "complete") {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     if (phase !== "learning") return;
     const activeWord = items[index];
     if (!activeWord) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     void wordRepository.saveReviewDraft(user.id, {
@@ -2061,7 +2202,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
         firstChoice: null,
         answer: "",
         spellingChecked: null,
-      }).then(() => setDraftWarning("")).catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
+      }).then(() => setDraftWarning("")).catch((error) => setDraftWarning(apiErrorMessage(error, "本轮进度暂时无法自动保存，请不要刷新或关闭页面。")));
   }, [index, items, phase, user.id]);
 
   const backToToday = (
@@ -2085,6 +2226,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
   const completeStudy = async () => {
     if (finalizingStudy.current) return;
     finalizingStudy.current = true;
+    setCompletionSaving(true);
     try {
       const save = () => wordRepository.completeNewStudy(user.id, items);
       const result = typeof navigator !== "undefined" && navigator.locks
@@ -2101,7 +2243,9 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
       onFinished();
     } catch (error) {
       finalizingStudy.current = false;
-      setDraftWarning(error instanceof Error ? error.message : "无法保存本轮新学结果，请稍后重试。");
+      setDraftWarning(apiErrorMessage(error, "无法保存本轮新学结果，请稍后重试。"));
+    } finally {
+      setCompletionSaving(false);
     }
   };
 
@@ -2115,7 +2259,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
 
   const startNextGroup = () => {
     const freshItems = newWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
-    void wordRepository.clearReviewDraft(user.id);
+    ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
     setItems(freshItems);
     setIndex(0);
     setCompletion(null);
@@ -2200,7 +2344,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
           {current.sentenceCn && <p><strong className="text-slate-900">翻译：</strong>{current.sentenceCn}</p>}
           {current.source && <p className="pt-1 text-xs text-slate-400">来源：{current.source}</p>}
         </div>
-        <button type="button" onClick={goNext} className="button-primary mt-7 w-full">{index === items.length - 1 ? "完成本组新学" : "已了解，下一个词"}</button>
+        <button type="button" onClick={goNext} disabled={completionSaving} className="button-primary mt-7 w-full">{completionSaving ? "保存中…" : index === items.length - 1 ? "完成本组新学" : "已了解，下一个词"}</button>
       </section>
     </>,
   );
@@ -2250,7 +2394,7 @@ function SpellingPracticePage({
       .map((wordId) => byId.get(wordId))
       .filter((item): item is WordWithProgress => Boolean(item));
     if (savedItems.length === 0) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return { items: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0, groupStart: 0 };
     }
     const savedIndex = storedDraft.currentWordId
@@ -2276,6 +2420,7 @@ function SpellingPracticePage({
   const [spellingChecked, setSpellingChecked] = useState<SpellingResponse | null>(initialSession.draft?.spellingChecked ?? null);
   const [hadSpellingError, setHadSpellingError] = useState(initialSession.draft?.hadSpellingError ?? false);
   const [completion, setCompletion] = useState<{ completed: number; corrected: number } | null>(null);
+  const [completionSaving, setCompletionSaving] = useState(false);
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingSpelling = useRef(false);
   const current = items[index] ?? items[0];
@@ -2289,13 +2434,13 @@ function SpellingPracticePage({
 
   useEffect(() => {
     if (phase === "complete") {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     if (phase !== "spelling") return;
     const activeWord = items[index];
     if (!activeWord) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     void wordRepository.saveReviewDraft(user.id, {
@@ -2314,7 +2459,7 @@ function SpellingPracticePage({
         spellingChecked,
       })
       .then(() => setDraftWarning(""))
-      .catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
+      .catch((error) => setDraftWarning(apiErrorMessage(error, "本轮进度暂时无法自动保存，请不要刷新或关闭页面。")));
   }, [answer, hadSpellingError, index, items, phase, source, spelling, spellingChecked, user.id]);
 
   const backToSource = (
@@ -2352,7 +2497,7 @@ function SpellingPracticePage({
   const startNextLibraryGroup = () => {
     const nextItems = spellingCandidates.slice(nextGroupStart, nextGroupStart + groupLimit);
     if (nextItems.length === 0) return;
-    void wordRepository.clearReviewDraft(user.id);
+    ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
     finalizingSpelling.current = false;
     setItems(nextItems);
     setGroupStart(nextGroupStart);
@@ -2388,6 +2533,7 @@ function SpellingPracticePage({
     }
     if (finalizingSpelling.current) return;
     finalizingSpelling.current = true;
+    setCompletionSaving(true);
     try {
       const save = () => wordRepository.finishSpellingPractice(user.id, items, nextSpelling);
       const result = typeof navigator !== "undefined" && navigator.locks
@@ -2404,7 +2550,9 @@ function SpellingPracticePage({
       onFinished();
     } catch (error) {
       finalizingSpelling.current = false;
-      setDraftWarning(error instanceof Error ? error.message : "无法保存拼写结果，请稍后重试。");
+      setDraftWarning(apiErrorMessage(error, "无法保存拼写结果，请稍后重试。"));
+    } finally {
+      setCompletionSaving(false);
     }
   };
 
@@ -2516,7 +2664,7 @@ function SpellingPracticePage({
           <div className="mt-7 rounded-2xl bg-blue-50 p-4 text-blue-900">
             <p className="font-bold">拼写正确</p>
             {spellingChecked.hadError && <p className="mt-2 text-sm">{source === "library" ? "已订正成功；本次练习不写入学习记录。" : "已订正成功；本次拼错会保留为拼写练习信号。"}</p>}
-            <button type="button" onClick={() => { void continueSpelling(); }} className="button-primary mt-4 w-full">{index === items.length - 1 ? "完成本组拼写" : "下一个词"}</button>
+            <button type="button" onClick={() => { void continueSpelling(); }} disabled={completionSaving} className="button-primary mt-4 w-full">{completionSaving ? "保存中…" : index === items.length - 1 ? "完成本组拼写" : "下一个词"}</button>
           </div>
         )}
       </section>
@@ -2547,7 +2695,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     const savedQueue = draft.recognitionQueueIds.map((wordId) => byId.get(wordId)).filter((item): item is WordWithProgress => Boolean(item));
     const valid = savedItems.length > 0 && (draft.phase !== "recognition" || savedQueue.length > 0);
     if (!valid) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return { items: freshItems, queue: freshItems, draft: null as ReviewDraft | null, resumeIndex: 0 };
     }
     const activeItems = draft.phase === "recognition" ? savedQueue : savedItems;
@@ -2584,6 +2732,8 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
   const [completion, setCompletion] = useState<ReviewCompletion | null>(null);
   const [killedInSession, setKilledInSession] = useState(0);
   const [killConfirmOpen, setKillConfirmOpen] = useState(false);
+  const [killBusy, setKillBusy] = useState(false);
+  const [completionSaving, setCompletionSaving] = useState(false);
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingReview = useRef(false);
   const backToToday = (
@@ -2601,14 +2751,14 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
 
   useEffect(() => {
     if (phase === "complete") {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     if (phase === "ready") return;
     const activeItems = phase === "recognition" ? recognitionQueue : items;
     const currentWordId = activeItems[index]?.id ?? null;
     if (!currentWordId) {
-      void wordRepository.clearReviewDraft(user.id);
+      ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
       return;
     }
     void wordRepository.saveReviewDraft(user.id, {
@@ -2626,7 +2776,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         spellingChecked,
       })
       .then(() => setDraftWarning(""))
-      .catch(() => setDraftWarning("本轮进度暂时无法自动保存，请不要刷新或关闭页面。"));
+      .catch((error) => setDraftWarning(apiErrorMessage(error, "本轮进度暂时无法自动保存，请不要刷新或关闭页面。")));
   }, [answer, firstChoice, hadSpellingError, index, items, phase, recognition, recognitionQueue, spelling, spellingChecked, user.id]);
 
   if (items.length === 0 && phase !== "complete") {
@@ -2644,12 +2794,15 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
   const isRelearning = phase === "recognition" && Boolean(current && recognition[current.id]);
 
   const killCurrent = async () => {
-    if (!current) return;
+    if (!current || killBusy) return;
+    setKillBusy(true);
     try {
       if (!await wordRepository.killWord(user.id, current.id)) return;
     } catch (error) {
-      setDraftWarning(error instanceof Error ? error.message : "斩词失败，请检查网络和服务器状态。");
+      setDraftWarning(apiErrorMessage(error, "斩词失败，请检查网络和服务器状态。"));
       return;
+    } finally {
+      setKillBusy(false);
     }
     setKillConfirmOpen(false);
 
@@ -2717,7 +2870,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
 
   const restartReview = () => {
     const freshItems = modeDueWords.slice(0, Math.min(groupWords, MAX_SESSION_WORDS));
-    void wordRepository.clearReviewDraft(user.id);
+    ignoreCleanupFailure(wordRepository.clearReviewDraft(user.id));
     setItems(freshItems);
     setRecognitionQueue(freshItems);
     setRecognition({});
@@ -2753,6 +2906,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     if (index === items.length - 1) {
       if (finalizingReview.current) return;
       finalizingReview.current = true;
+      setCompletionSaving(true);
       try {
         const save = () => wordRepository.finishReview(user.id, items, recognition, nextSpelling);
         const result = typeof navigator !== "undefined" && navigator.locks
@@ -2763,7 +2917,9 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         onFinished();
       } catch (error) {
         finalizingReview.current = false;
-        setDraftWarning(error instanceof Error ? error.message : "无法保存本轮结果，请稍后重试。");
+        setDraftWarning(apiErrorMessage(error, "无法保存本轮结果，请稍后重试。"));
+      } finally {
+        setCompletionSaving(false);
       }
       return;
     }
@@ -2943,7 +3099,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
           </>
         )}
       </section>
-      {killConfirmOpen && <KillConfirmModal word={current.word} onCancel={() => setKillConfirmOpen(false)} onConfirm={killCurrent} />}
+      {killConfirmOpen && <KillConfirmModal word={current.word} busy={killBusy} onCancel={() => setKillConfirmOpen(false)} onConfirm={killCurrent} />}
     </>
   );
 }
@@ -2962,7 +3118,7 @@ function ReviewProgress({ label, index, total, detail }: { label: string; index:
   );
 }
 
-function KillConfirmModal({ word, onCancel, onConfirm }: { word: string; onCancel: () => void; onConfirm: () => void }) {
+function KillConfirmModal({ word, busy = false, onCancel, onConfirm }: { word: string; busy?: boolean; onCancel: () => void; onConfirm: () => void | Promise<void> }) {
   const { dialogRef, onBackdropPointerDown } = useModalDialog(onCancel);
   return (
     <div className="modal-backdrop fixed inset-0 z-50 grid place-items-end bg-slate-950/35 p-4 backdrop-blur-[2px] sm:place-items-center" role="dialog" aria-modal="true" aria-labelledby="kill-title" aria-describedby="kill-description" onPointerDown={onBackdropPointerDown}>
@@ -2971,15 +3127,15 @@ function KillConfirmModal({ word, onCancel, onConfirm }: { word: string; onCance
         <h2 id="kill-title" className="mt-4 text-xl font-bold">确定斩掉 {word}？</h2>
         <p id="kill-description" className="mt-2 text-sm leading-6 text-slate-500">斩掉后不再进入每日复习，但单词、释义和学习记录都会保留，可随时在“已斩”中恢复。</p>
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onCancel} className="button-secondary">再想想</button>
-          <button type="button" onClick={onConfirm} className="kill-confirm-button inline-flex min-h-12 items-center justify-center rounded-2xl bg-amber-300 px-5 font-bold text-amber-950">确认斩掉</button>
+          <button type="button" onClick={onCancel} disabled={busy} className="button-secondary">再想想</button>
+          <button type="button" onClick={() => void onConfirm()} disabled={busy} className="kill-confirm-button inline-flex min-h-12 items-center justify-center rounded-2xl bg-amber-300 px-5 font-bold text-amber-950">{busy ? "处理中…" : "确认斩掉"}</button>
         </div>
       </section>
     </div>
   );
 }
 
-function BatchDeleteConfirmModal({ count, onCancel, onConfirm }: { count: number; onCancel: () => void; onConfirm: () => void }) {
+function BatchDeleteConfirmModal({ count, busy = false, onCancel, onConfirm }: { count: number; busy?: boolean; onCancel: () => void; onConfirm: () => void | Promise<void> }) {
   const { dialogRef, onBackdropPointerDown } = useModalDialog(onCancel);
   return (
     <div className="modal-backdrop fixed inset-0 z-50 grid place-items-end bg-slate-950/35 p-4 backdrop-blur-[2px] sm:place-items-center" role="dialog" aria-modal="true" aria-labelledby="batch-delete-title" aria-describedby="batch-delete-description" onPointerDown={onBackdropPointerDown}>
@@ -2988,8 +3144,8 @@ function BatchDeleteConfirmModal({ count, onCancel, onConfirm }: { count: number
         <h2 id="batch-delete-title" className="mt-4 text-xl font-bold">永久删除 {count} 个词？</h2>
         <p id="batch-delete-description" className="mt-2 text-sm leading-6 text-slate-500">这些词及其学习进度会一并删除，不能从“已斩”中恢复。若还没有备份，请先取消并导出 JSON 备份。</p>
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onCancel} className="button-secondary">取消</button>
-          <button type="button" onClick={onConfirm} className="batch-delete-confirm-button">确认删除</button>
+          <button type="button" onClick={onCancel} disabled={busy} className="button-secondary">取消</button>
+          <button type="button" onClick={() => void onConfirm()} disabled={busy} className="batch-delete-confirm-button">{busy ? "删除中…" : "确认删除"}</button>
         </div>
       </section>
     </div>
@@ -3044,6 +3200,7 @@ export default function App() {
   const [revision, setRevision] = useState(0);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
   const [storageStatus, setStorageStatus] = useState(() => wordRepository.getStorageStatus());
   const darkTheme = themeMode === "dark" || (themeMode === "system" && systemDark);
   const words = useMemo(() => (user ? wordRepository.getWords(user.id) : []), [user, revision]);
@@ -3054,10 +3211,11 @@ export default function App() {
       setUser(null);
       setCloudLoading(false);
       setCloudError("");
+      setAuthNotice("登录状态已过期，请重新登录。");
       window.location.hash = "/login";
       return;
     }
-    setCloudError(error instanceof Error ? error.message : fallback);
+    setCloudError(apiErrorMessage(error, fallback));
   };
   const refresh = () => {
     if (!user) {
@@ -3118,6 +3276,7 @@ export default function App() {
       setUser(null);
       setCloudLoading(false);
       setCloudError("");
+      setAuthNotice("登录状态已过期，请重新登录。");
       window.location.hash = "/login";
     };
     window.addEventListener("cet-word-api-unauthorized", onUnauthorized);
@@ -3175,6 +3334,7 @@ export default function App() {
 
   const login = async (email: string, password: string) => {
     authProbeRef.current += 1;
+    setAuthNotice("");
     setAuthChecking(false);
     setCloudLoading(true);
     try {
@@ -3228,7 +3388,7 @@ export default function App() {
       </section>
     );
   } else if (route === "/login") {
-    content = <LoginPage user={user} onLogin={login} onLogout={logout} />;
+    content = <LoginPage user={user} onLogin={login} onLogout={logout} notice={authNotice} />;
   } else if (!user) {
     content = <SignInRequired />;
   } else if (route === "/import") {
