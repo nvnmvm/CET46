@@ -247,6 +247,8 @@ export type WordRepository = {
   updateUserProfile(userId: string, patch: UpdateUserProfilePatch): Promise<UserRecord | null>;
   adminListUsers(options: AdminUserListOptions): Promise<AdminUserList>;
   adminCreateUser(actorUserId: string, input: NewUserInput): Promise<UserRecord>;
+  adminUpdateUser(actorUserId: string, targetUserId: string, patch: { email?: string; username?: string | null }): Promise<UserRecord | null>;
+  adminDeleteUser(actorUserId: string, targetUserId: string): Promise<boolean>;
   adminSetUserDisabled(actorUserId: string, targetUserId: string, disabled: boolean): Promise<UserRecord | null>;
   adminResetUserPassword(actorUserId: string, targetUserId: string, passwordHash: string): Promise<UserRecord | null>;
   promoteUserToAdmin(userId: string): Promise<UserRecord | null>;

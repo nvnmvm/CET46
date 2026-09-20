@@ -6,6 +6,7 @@ import {
   adminCreateUserBodySchema,
   adminPasswordResetBodySchema,
   adminStatusBodySchema,
+  adminUpdateUserBodySchema,
   adminUsersQuerySchema,
   idParamSchema,
 } from "../schemas.ts";
@@ -135,6 +136,36 @@ export const adminRoutes: FastifyPluginAsync<AdminRouteOptions> = async (app, op
     } catch (error) {
       return repositoryError(reply, error);
     }
+  });
+
+  app.patch("/admin/users/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, options);
+    if ("body" in session) return session.body;
+    const originError = requireSameOrigin(request, reply, options.config);
+    if (originError) return originError;
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) return sendValidationError(reply, params.error);
+    const parsed = adminUpdateUserBodySchema.safeParse(request.body);
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    try {
+      const user = await options.repository.adminUpdateUser(session.context.user.id, params.data.id, parsed.data);
+      if (!user) return sendError(reply, 404, "not_found", "账号不存在");
+      return { user: serializeAdminUser(user) };
+    } catch (error) { return repositoryError(reply, error); }
+  });
+
+  app.delete("/admin/users/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, options);
+    if ("body" in session) return session.body;
+    const originError = requireSameOrigin(request, reply, options.config);
+    if (originError) return originError;
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) return sendValidationError(reply, params.error);
+    try {
+      const deleted = await options.repository.adminDeleteUser(session.context.user.id, params.data.id);
+      if (!deleted) return sendError(reply, 404, "not_found", "账号不存在");
+      return { deleted: true };
+    } catch (error) { return repositoryError(reply, error); }
   });
 
   app.post("/admin/users/:id/password-reset", async (request, reply) => {

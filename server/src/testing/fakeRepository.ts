@@ -324,6 +324,31 @@ export function createFakeRepository(options: FakeRepositoryOptions = {}): FakeR
       return created;
     },
 
+    async adminUpdateUser(actorUserId, targetUserId, patch) {
+      const actor = users.get(actorUserId);
+      if (!actor || actor.role !== "admin" || actor.disabledAt !== null) throw new RepositoryForbiddenError("admin_required");
+      const target = users.get(targetUserId);
+      if (!target) return null;
+      if (patch.email !== undefined && userIdByEmail.has(patch.email) && userIdByEmail.get(patch.email) !== targetUserId) throw new RepositoryConflictError("email_exists");
+      if (patch.email !== undefined) { userIdByEmail.delete(target.email); target.email = patch.email; userIdByEmail.set(target.email, target.id); }
+      if (patch.username !== undefined) target.username = patch.username;
+      target.updatedAt = nowIso();
+      adminAudit.push({ id: newId("audit"), actorUserId, targetUserId, action: "update_user", createdAt: nowIso() });
+      return { ...target };
+    },
+
+    async adminDeleteUser(actorUserId, targetUserId) {
+      const actor = users.get(actorUserId);
+      if (!actor || actor.role !== "admin" || actor.disabledAt !== null) throw new RepositoryForbiddenError("admin_required");
+      const target = users.get(targetUserId);
+      if (!target) return false;
+      if (targetUserId === actorUserId) throw new RepositoryForbiddenError("cannot_delete_self");
+      if (target.role === "admin") throw new RepositoryForbiddenError("cannot_delete_admin");
+      users.delete(targetUserId); userIdByEmail.delete(target.email);
+      for (const [id, session] of sessions) if (session.userId === targetUserId) sessions.delete(id);
+      return true;
+    },
+
     async adminSetUserDisabled(actorUserId, targetUserId, disabled) {
       const actor = users.get(actorUserId);
       if (!actor || actor.role !== "admin" || actor.disabledAt !== null) throw new RepositoryForbiddenError("admin_required");

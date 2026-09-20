@@ -39,8 +39,10 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [target, setTarget] = useState<AdminUser | null>(null);
-  const [action, setAction] = useState<"status" | "password">("status");
+  const [action, setAction] = useState<"status" | "password" | "edit" | "delete">("status");
   const [resetPassword, setResetPassword] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const alive = useRef(true);
   const requestVersion = useRef(0);
   const busy = useRef(false);
@@ -51,16 +53,20 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
     if (target) confirmHeading.current?.focus();
   }, [target, action]);
 
-  function choose(user: AdminUser, nextAction: "status" | "password") {
+  function choose(user: AdminUser, nextAction: "status" | "password" | "edit" | "delete") {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setTarget(user);
     setAction(nextAction);
     setResetPassword("");
+    setEditEmail(user.email);
+    setEditUsername(user.username ?? "");
   }
 
   function cancel() {
     setTarget(null);
     setResetPassword("");
+    setEditEmail("");
+    setEditUsername("");
     opener.current?.focus();
   }
 
@@ -105,6 +111,8 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
       if (!alive.current) return;
       setPassword("");
       setResetPassword("");
+      setEditEmail("");
+      setEditUsername("");
       setNotice(success);
       setTarget(null);
       await load(offset);
@@ -132,8 +140,12 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
     const selected = target;
     void mutate(() => action === "status"
       ? apiClient.adminSetDisabled(selected.id, !selected.disabledAt)
-      : apiClient.adminResetPassword(selected.id, resetPassword),
+      : action === "password" ? apiClient.adminResetPassword(selected.id, resetPassword)
+      : action === "edit" ? apiClient.adminUpdateUser(selected.id, { email: editEmail.trim(), username: editUsername.trim() })
+      : apiClient.adminDeleteUser(selected.id),
     action === "password" ? "密码已重置，原有会话已撤销。"
+      : action === "edit" ? "账号资料已更新。"
+      : action === "delete" ? "账号已删除。"
       : selected.disabledAt ? "账号已启用。" : "账号已禁用，原有会话已撤销，学习数据保留。");
   }
 
@@ -160,17 +172,20 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
         {users.map(user => <li key={user.id} className="flex min-w-0 flex-wrap items-center justify-between gap-4 py-4">
           <div className="min-w-0 flex-1 break-words"><p className="font-semibold">{user.username || "未设置名称"}{user.id === currentUserId ? "（你）" : ""}</p><p className="break-all text-sm text-slate-600">{user.email}</p><p className="text-xs text-slate-500">{user.role === "admin" ? "管理员" : "普通账号"} · {user.disabledAt ? "已禁用" : "已启用"}</p></div>
           {user.role !== "admin" && <div className="flex flex-wrap gap-2">
+            <button type="button" className="button-secondary" disabled={saving} onClick={() => choose(user, "edit")}>编辑</button>
             <button type="button" className="button-secondary" disabled={saving} onClick={() => choose(user, "status")}>{user.disabledAt ? "启用" : "禁用"}</button>
             <button type="button" className="button-secondary" disabled={saving} onClick={() => choose(user, "password")}>重置密码</button>
+            <button type="button" className="button-secondary text-red-700" disabled={saving} onClick={() => choose(user, "delete")}>删除</button>
           </div>}
         </li>)}
       </ul>}
       <div className="mt-4 flex flex-wrap gap-3"><button className="button-secondary" disabled={loading || saving || offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>上一页</button><button className="button-secondary" disabled={loading || saving || offset + PAGE_SIZE >= total} onClick={() => setOffset(offset + PAGE_SIZE)}>下一页</button></div>
     </section>
     {target && <form onSubmit={confirm} aria-labelledby="admin-confirm-title" className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-      <h2 id="admin-confirm-title" ref={confirmHeading} tabIndex={-1} className="break-all font-semibold">确认{action === "password" ? "重置密码" : target.disabledAt ? "启用账号" : "禁用账号"}：{target.email}</h2>
-      <p className="my-3 text-sm">{action === "password" ? "旧密码将失效，所有已登录设备将需要重新登录。" : target.disabledAt ? "此账号将可以再次登录。" : "此账号将无法登录，已登录设备的会话也会失效；学习数据不会删除。"}</p>
+      <h2 id="admin-confirm-title" ref={confirmHeading} tabIndex={-1} className="break-all font-semibold">确认{action === "password" ? "重置密码" : action === "edit" ? "编辑账号" : action === "delete" ? "删除账号" : target.disabledAt ? "启用账号" : "禁用账号"}：{target.email}</h2>
+      <p className="my-3 text-sm">{action === "password" ? "旧密码将失效，所有已登录设备将需要重新登录。" : action === "delete" ? "删除后该账号的词库、进度、草稿和学习记录会一并删除，且无法恢复。" : target.disabledAt ? "此账号将可以再次登录。" : "此账号将无法登录，已登录设备的会话也会失效；学习数据不会删除。"}</p>
       <fieldset disabled={saving} className="space-y-3">
+        {action === "edit" && <><label className="grid gap-2 text-sm">邮箱<input className="min-w-0 rounded-xl border p-3" type="email" required value={editEmail} onChange={e => setEditEmail(e.target.value)} /></label><label className="grid gap-2 text-sm">用户名<input className="min-w-0 rounded-xl border p-3" required value={editUsername} onChange={e => setEditUsername(e.target.value)} /></label></>}
         {action === "password" && <label className="grid gap-2 text-sm">新密码<input className="min-w-0 rounded-xl border p-3" type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={resetPassword} onChange={e => setResetPassword(e.target.value)} /></label>}
         <div className="flex flex-wrap gap-3"><button className="button-primary" type="submit">{saving ? "正在保存…" : "确认操作"}</button><button className="button-secondary" type="button" onClick={cancel}>取消</button></div>
       </fieldset>

@@ -161,6 +161,10 @@ export const adminCreateUserBodySchema = z.strictObject({
 });
 
 export const adminStatusBodySchema = z.strictObject({ disabled: z.boolean() });
+export const adminUpdateUserBodySchema = z.strictObject({
+  email: emailSchema.optional(),
+  username: z.string().max(40).transform((value) => value.trim()).nullable().optional(),
+}).refine((value) => value.email !== undefined || value.username !== undefined, { message: "至少需要提供邮箱或用户名" });
 
 export const adminPasswordResetBodySchema = z.strictObject({
   password: z.string().min(1, "密码不能为空").max(200),

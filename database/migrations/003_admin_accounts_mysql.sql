@@ -11,7 +11,7 @@ CREATE TABLE admin_audit_logs (
   id              VARCHAR(40) NOT NULL,
   actor_user_id   VARCHAR(40) NOT NULL,
   target_user_id  VARCHAR(40) NOT NULL,
-  action          ENUM('create_user', 'disable_user', 'enable_user', 'reset_password') NOT NULL,
+  action          ENUM('create_user', 'update_user', 'disable_user', 'enable_user', 'reset_password') NOT NULL,
   created_at      DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   KEY idx_admin_audit_actor_created (actor_user_id, created_at),
@@ -19,4 +19,3 @@ CREATE TABLE admin_audit_logs (
   CONSTRAINT fk_admin_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE RESTRICT,
   CONSTRAINT fk_admin_audit_target FOREIGN KEY (target_user_id) REFERENCES users (id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-

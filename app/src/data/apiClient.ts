@@ -141,6 +141,8 @@ export type ApiClient = {
   adminStatus(): Promise<boolean>;
   adminUsers(options?: ListOptions): Promise<{ users: AdminUser[]; total: number }>;
   adminCreateUser(input: { email: string; username: string; password: string }): Promise<void>;
+  adminUpdateUser(id: string, patch: { email?: string; username?: string | null }): Promise<void>;
+  adminDeleteUser(id: string): Promise<void>;
   adminSetDisabled(id: string, disabled: boolean): Promise<void>;
   adminResetPassword(id: string, password: string): Promise<void>;
   login(email: string, password: string): Promise<LocalUser>;
@@ -764,6 +766,14 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       await request(`/api/admin/users/${encodeURIComponent(id)}/status`, {
         method: "PATCH", body: { disabled },
       });
+    },
+
+    async adminUpdateUser(id, patch): Promise<void> {
+      await request(`/api/admin/users/${encodeURIComponent(id)}`, { method: "PATCH", body: patch });
+    },
+
+    async adminDeleteUser(id): Promise<void> {
+      await request(`/api/admin/users/${encodeURIComponent(id)}`, { method: "DELETE" });
     },
 
     async adminResetPassword(id, password): Promise<void> {

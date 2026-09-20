@@ -250,7 +250,7 @@ export function createMysqlRepository(pool: MysqlPool): WordRepository {
     connection: PoolConnection,
     actorUserId: string,
     targetUserId: string,
-    action: "create_user" | "disable_user" | "enable_user" | "reset_password",
+    action: "create_user" | "update_user" | "disable_user" | "enable_user" | "reset_password",
   ): Promise<void> => {
     await connection.execute(
       "INSERT INTO admin_audit_logs (id, actor_user_id, target_user_id, action, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -457,6 +457,35 @@ export function createMysqlRepository(pool: MysqlPool): WordRepository {
         if (!created) throw new Error("创建用户后无法读回记录。");
         await insertAdminAudit(connection, actorUserId, created.id, "create_user");
         return created;
+      });
+    },
+
+    async adminUpdateUser(actorUserId, targetUserId, patch) {
+      return withTransaction(pool, async (connection) => {
+        await assertAdminActor(connection, actorUserId);
+        const [rows] = await connection.execute<RowDataPacket[]>("SELECT id FROM users WHERE id = ? LIMIT 1 FOR UPDATE", [targetUserId]);
+        if (!rows[0]) return null;
+        try {
+          await connection.execute("UPDATE users SET email = COALESCE(?, email), username = COALESCE(?, username), updated_at = ? WHERE id = ?", [patch.email ?? null, patch.username ?? null, nowUtc(), targetUserId]);
+        } catch (error) {
+          if (typeof error === "object" && error !== null && (error as { code?: string }).code === "ER_DUP_ENTRY") throw new RepositoryConflictError("email_exists");
+          throw error;
+        }
+        await insertAdminAudit(connection, actorUserId, targetUserId, "update_user");
+        return selectUserById(targetUserId, connection);
+      });
+    },
+
+    async adminDeleteUser(actorUserId, targetUserId) {
+      return withTransaction(pool, async (connection) => {
+        await assertAdminActor(connection, actorUserId);
+        const [rows] = await connection.execute<RowDataPacket[]>("SELECT id, role FROM users WHERE id = ? LIMIT 1 FOR UPDATE", [targetUserId]);
+        if (!rows[0]) return false;
+        if (targetUserId === actorUserId) throw new RepositoryForbiddenError("cannot_delete_self");
+        if (rows[0].role === "admin") throw new RepositoryForbiddenError("cannot_delete_admin");
+        await connection.execute("DELETE FROM admin_audit_logs WHERE target_user_id = ?", [targetUserId]);
+        const [result] = await connection.execute<ResultSetHeader>("DELETE FROM users WHERE id = ?", [targetUserId]);
+        return result.affectedRows > 0;
       });
     },
 
