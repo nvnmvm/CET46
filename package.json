@@ -1,0 +1,38 @@
+{
+  "name": "cet-word-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test app/tests/*.test.mjs",
+    "test:server": "node --test server/tests/*.test.ts",
+    "test:mysql": "node --test server/tests/mysql.integration.test.ts",
+    "typecheck:server": "tsc -p server/tsconfig.json",
+    "db:migrate": "node server/scripts/migrate.ts",
+    "user:create": "node server/scripts/create-user.ts",
+    "server:dev": "node --watch server/src/main.ts",
+    "server:start": "node server/src/main.ts",
+    "dev": "vite --config project/tooling/vite.config.mjs",
+    "build": "tsc -b project/tooling/tsconfig.json && vite build --config project/tooling/vite.config.mjs",
+    "preview": "vite preview --config project/tooling/vite.config.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "argon2": "^0.45.1",
+    "fastify": "^5.12.5",
+    "mysql2": "^3.24.4",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "tailwindcss": "^3.4.17",
+    "typescript": "latest"
+  }
+}

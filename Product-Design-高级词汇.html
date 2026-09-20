@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Product Design · 高级词汇</title>
+  <style>
+    :root { color-scheme:light; --ink:#0f172a; --sub:#64748b; --blue:#2563eb; --blue-dark:#1e3a8a; --line:#dbeafe; --page:#f8fafc; --card:#fff; --soft:#eff6ff; --amber:#d97706; --shadow:0 16px 38px rgba(30,64,175,.10); }
+    * { box-sizing:border-box; } html { background:#eff6ff; } body { min-width:320px; margin:0; background:linear-gradient(180deg,#eff6ff 0,#f8fafc 42%,#fffaf0 100%); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.5; }
+    button,input { font:inherit; } button { cursor:pointer; } a { color:inherit; text-decoration:none; } .app-shell { min-height:100vh; padding-bottom:88px; }
+    .topbar { position:sticky; top:0; z-index:10; border-bottom:1px solid rgba(219,234,254,.8); background:rgba(255,255,255,.9); backdrop-filter:blur(14px); }
+    .topbar-inner { display:flex; max-width:768px; min-height:67px; align-items:center; justify-content:space-between; gap:12px; margin:auto; padding:10px 20px; }
+    .brand { display:flex; min-width:0; align-items:center; gap:9px; font-weight:750; letter-spacing:-.02em; } .brand-mark { display:grid; width:32px; height:32px; flex:none; place-items:center; border-radius:11px; background:#1d4ed8; color:white; font-size:.88rem; box-shadow:0 3px 8px rgba(37,99,235,.25); }
+    .theme-button { display:inline-flex; min-height:37px; align-items:center; gap:7px; border:1px solid #e2e8f0; border-radius:999px; padding:0 12px; background:white; color:#475569; font-size:.78rem; font-weight:650; }
+    main { width:min(100% - 40px,768px); margin:auto; padding:28px 0; } .page { display:none; } .page.active { display:block; animation:page-in .18s ease-out; } @keyframes page-in { from{opacity:.2;transform:translateY(5px)}to{opacity:1;transform:none} }
+    .home-page { position:relative; display:flex; flex-direction:column; gap:24px; } .welcome p,.eyebrow { margin:0; color:#1d4ed8; font-size:.87rem; font-weight:650; } h1 { margin:4px 0 0; font-size:clamp(1.72rem,7vw,2.15rem); letter-spacing:-.05em; line-height:1.12; } .date { margin:9px 0 0; color:var(--sub); font-size:.82rem; font-weight:600; }
+    .study-card { position:relative; overflow:hidden; padding:clamp(22px,6vw,36px); border:1px solid rgba(255,255,255,.92); border-radius:40px; background:linear-gradient(135deg,#fff,#ebf8ff); box-shadow:0 24px 55px rgba(79,128,178,.15),inset 0 1px 0 white; } .study-card:after { position:absolute; right:-68px; bottom:-80px; width:230px; height:230px; border-radius:50%; background:rgba(191,229,255,.48); content:""; }
+    .study-card-head,.progress-row,.action-row,.forecast { position:relative; z-index:1; } .study-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; } .overline { margin:0 0 4px; color:#64748b; font-size:.7rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; } .course-title { margin:0; font-size:clamp(1.6rem,6vw,2.25rem); letter-spacing:-.05em; line-height:1.08; } .icon-button { display:grid; width:45px; height:45px; flex:none; place-items:center; border:0; border-radius:15px; background:rgba(226,239,250,.85); color:#2563eb; font-size:1.18rem; }
+    .illustration { position:relative; z-index:1; display:grid; height:155px; margin-top:20px; overflow:hidden; place-items:center; border-radius:28px; background:linear-gradient(120deg,#eaf5ff,#dcefff); } .illustration svg { width:min(100%,470px); height:100%; }
+    .progress-row { display:flex; align-items:center; gap:16px; margin-top:22px; padding:16px 18px; border-radius:21px; background:rgba(235,246,255,.86); } .track { height:11px; min-width:0; flex:1; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.84); } .fill { height:100%; border-radius:inherit; background:#2563eb; transition:width 160ms ease; } .progress-number { margin:0; color:#2563eb; font-size:1rem; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .forecast { margin:15px 0 0; color:#64748b; font-size:.79rem; font-weight:650; } .plan-summary { margin:7px 0 0; color:#2563eb; font-size:.76rem; font-weight:750; } .action-row { display:grid; grid-template-columns:.72fr 1fr 1fr; gap:10px; margin-top:19px; } .home-action { display:flex; min-height:68px; flex-direction:column; align-items:center; justify-content:center; border:0; border-radius:17px; color:white; background:#2563eb; font-weight:750; } .home-action small { margin-top:2px; color:#dbeafe; font-size:.68rem; font-weight:650; } .home-action.spell { color:#1e3a8a; background:#dbeafe; }
+    .section-card { border:1px solid var(--line); border-radius:24px; background:rgba(255,255,255,.9); padding:20px; box-shadow:0 7px 20px rgba(30,64,175,.035); } .section-card h2 { margin:0; font-size:1.04rem; } .section-card p { color:var(--sub); } .home-meta { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; } .mini-stat { padding:14px 12px; border-radius:17px; background:#f8fbff; text-align:center; } .mini-stat strong { display:block; color:#1e3a8a; font-size:1.25rem; font-variant-numeric:tabular-nums; } .mini-stat span { color:#64748b; font-size:.72rem; font-weight:650; }
+    .page-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; } .back { display:grid; width:41px; height:41px; place-items:center; border:1px solid var(--line); border-radius:14px; background:#fff; color:#1d4ed8; font-size:1.25rem; } .page-header h1 { margin:0; font-size:1.5rem; } .page-header p { margin:3px 0 0; color:var(--sub); font-size:.78rem; }
+    .review-tabs,.filter-row { display:flex; gap:8px; overflow-x:auto; margin:0 0 15px; } .review-tab,.chip { flex:none; min-height:39px; border:1px solid #dbeafe; border-radius:12px; padding:0 14px; background:white; color:#64748b; font-size:.84rem; font-weight:700; } .review-tab.active,.chip.active { border-color:#bfdbfe; background:#eff6ff; color:#1e40af; }
+    .review-card { min-height:405px; padding:28px 22px; border:1px solid #dbeafe; border-radius:28px; background:white; box-shadow:var(--shadow); text-align:center; } .review-progress { display:flex; align-items:center; justify-content:space-between; color:#64748b; font-size:.78rem; font-weight:700; } .review-progress .track { width:45%; flex:none; height:7px; } .level { display:inline-flex; margin-top:32px; border-radius:999px; padding:4px 10px; background:#eff6ff; color:#2563eb; font-size:.72rem; font-weight:800; } .word { margin:19px 0 0; font-size:clamp(2.35rem,10vw,4.4rem); letter-spacing:-.06em; line-height:1; overflow-wrap:anywhere; } .ipa { margin:8px 0 0; color:#2563eb; font-size:.95rem; } .pos { margin:10px 0 0; color:#64748b; font-size:.82rem; } .meaning { min-height:48px; margin:26px 0 0; color:#0f172a; font-size:1.15rem; font-weight:800; } .meaning.masked { color:#94a3b8; font-size:.95rem; font-weight:550; } .gloss,.example { max-width:540px; margin:9px auto 0; color:#64748b; font-size:.9rem; } .example { padding-top:14px; border-top:1px solid #e5edf9; font-family:Georgia,serif; font-style:italic; } .hidden { display:none; }
+    .button-row { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; margin-top:22px; } .button { min-height:43px; border:1px solid #dbeafe; border-radius:13px; padding:0 15px; background:#fff; color:#475569; font-weight:700; } .button.primary { border-color:#2563eb; background:#2563eb; color:white; } .button.warning { border-color:#fde68a; background:#fffbeb; color:#a16207; } .button.good { border-color:#bbf7d0; background:#f0fdf4; color:#15803d; }
+    .spelling-box { max-width:600px; margin:auto; padding:25px; border:1px solid #dbeafe; border-radius:28px; background:white; box-shadow:var(--shadow); text-align:center; } .spelling-input,.search { width:100%; min-height:50px; border:1px solid #cbd5e1; border-radius:13px; padding:0 15px; outline:0; background:#fff; color:#0f172a; } .spelling-input { margin-top:23px; text-align:center; font-size:1.08rem; } .spelling-input:focus,.search:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.13); } .feedback { min-height:25px; margin:15px 0 0; color:#64748b; font-size:.88rem; } .feedback.good { color:#15803d; font-weight:750; } .feedback.bad { color:#b91c1c; font-weight:750; }
+    .library-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:22px; border:1px solid #dbeafe; border-radius:27px; background:linear-gradient(135deg,#fff,#ecf7ff); box-shadow:0 14px 34px rgba(30,64,175,.08); } .library-summary h2 { margin:3px 0 0; font-size:1.4rem; letter-spacing:-.04em; } .library-summary p { margin:8px 0 0; color:#64748b; font-size:.83rem; } .library-total { color:#1d4ed8; font-size:1.7rem; font-weight:850; } .library-total span { display:block; color:#64748b; font-size:.68rem; font-weight:650; text-align:right; }
+    .library-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; } .library-tools { position:sticky; top:76px; z-index:3; margin:16px 0; padding:12px; border:1px solid #dbeafe; border-radius:18px; background:rgba(248,251,255,.94); backdrop-filter:blur(10px); } .filter-row { margin:10px 0 0; } .word-list { display:grid; gap:9px; } .word-item { padding:15px 16px; border:1px solid #e2e8f0; border-radius:17px; background:white; } .word-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; } .word-item h3 { margin:0; font-size:1.16rem; letter-spacing:-.02em; } .word-item .ipa { margin:3px 0 0; font-size:.79rem; } .word-item p { margin:8px 0 0; color:#475569; font-size:.87rem; } .state { flex:none; border-radius:999px; padding:4px 8px; background:#f1f5f9; color:#64748b; font-size:.68rem; font-weight:750; } .state.known { background:#f0fdf4; color:#15803d; } .state.review { background:#fffbeb; color:#a16207; }
+    .profile-hero { display:flex; align-items:center; gap:15px; padding:20px; border:1px solid #dbeafe; border-radius:25px; background:white; } .avatar { display:grid; width:62px; height:62px; flex:none; place-items:center; border-radius:20px; background:#eff6ff; color:#1d4ed8; font-size:1.9rem; } .profile-hero h2 { margin:0; font-size:1.1rem; } .profile-hero p { margin:4px 0 0; color:#64748b; font-size:.83rem; }
+    .bars { display:grid; grid-template-columns:repeat(3,1fr); align-items:end; gap:13px; height:175px; margin:20px 0 0; } .bar-col { display:grid; grid-template-rows:20px 1fr 20px; height:100%; gap:6px; text-align:center; } .bar-col strong { color:#1e3a8a; font-size:.82rem; } .bar-track { display:flex; align-items:end; border-radius:14px; padding:4px; background:#eff6ff; } .bar { width:100%; min-height:5px; border-radius:10px; background:#60a5fa; transition:height 160ms ease; } .bar.review { background:#fbbf24; } .bar.known { background:#2563eb; } .bar-col span { color:#64748b; font-size:.72rem; font-weight:650; }
+    .bottom-nav { position:fixed; inset:auto 0 0; z-index:9; border-top:1px solid #dbeafe; background:rgba(255,255,255,.95); backdrop-filter:blur(16px); } .bottom-nav-inner { display:flex; max-width:500px; margin:auto; justify-content:space-around; padding:8px 12px max(8px,env(safe-area-inset-bottom)); } .nav-link { display:flex; min-width:68px; min-height:49px; flex-direction:column; align-items:center; justify-content:center; border:0; border-radius:13px; background:transparent; color:#64748b; font-size:.72rem; font-weight:600; } .nav-link b { font-size:1.1rem; line-height:1; } .nav-link span { margin-top:3px; } .nav-link.active { background:#eff6ff; color:#1e3a8a; font-weight:800; }
+    .modal-backdrop { position:fixed; inset:0; z-index:30; display:none; align-items:end; justify-content:center; padding:16px; background:rgba(15,23,42,.38); } .modal-backdrop.open { display:flex; } .modal { width:min(100%,480px); border-radius:26px; padding:23px; background:white; box-shadow:0 28px 70px rgba(15,23,42,.28); } .modal h2 { margin:0; font-size:1.23rem; } .modal p { margin:7px 0 0; color:#64748b; font-size:.87rem; } .plan-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; } .plan-fields label { color:#334155; font-size:.82rem; font-weight:750; } .plan-fields input,.paste-area { width:100%; min-height:46px; margin-top:7px; border:1px solid #cbd5e1; border-radius:12px; padding:10px 12px; outline:0; } .paste-area { min-height:110px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem; line-height:1.5; } .plan-fields input:focus,.paste-area:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.13); } .plan-total { margin-top:14px!important; border-radius:13px; padding:11px 13px; color:#1e40af!important; background:#eff6ff; font-weight:750; } .import-help { margin-top:17px!important; padding:12px; border-radius:13px; background:#f8fafc; font-size:.78rem!important; line-height:1.6; } .import-status { min-height:22px; margin-top:12px!important; } .file-picker { display:block; margin-top:14px; color:#475569; font-size:.82rem; font-weight:700; } .file-picker input { display:block; width:100%; margin-top:7px; font-size:.8rem; } html[data-theme="dark"] .modal { background:#172033; color:#e2e8f0; } html[data-theme="dark"] .plan-fields label { color:#cbd5e1; } html[data-theme="dark"] .plan-fields input,html[data-theme="dark"] .paste-area { border-color:#334b70; background:#0f172a; color:#e2e8f0; } html[data-theme="dark"] .import-help { background:#0f172a; color:#a8b9d1; }
+    .ai-prompt { margin-top:12px; border:1px solid #bfdbfe; border-radius:13px; overflow:hidden; background:#eff6ff; } .ai-prompt summary { padding:11px 12px; color:#1e40af; cursor:pointer; font-size:.81rem; font-weight:800; } .ai-prompt-body { padding:0 12px 12px; } .ai-prompt-body p { margin:0 0 8px; font-size:.77rem; } .ai-prompt-text { width:100%; min-height:180px; resize:vertical; border:1px solid #bfdbfe; border-radius:10px; padding:9px; background:#fff; color:#334155; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.7rem; line-height:1.45; } html[data-theme="dark"] .ai-prompt,html[data-theme="dark"] .ai-prompt-text { border-color:#334b70; background:#0f172a; color:#a8b9d1; } html[data-theme="dark"] .ai-prompt summary { color:#93c5fd; }
+    .reset { margin-top:18px; border:0; background:transparent; color:#64748b; font-size:.8rem; text-decoration:underline; } .empty { padding:30px; border:1px dashed #bfdbfe; border-radius:17px; color:#64748b; text-align:center; }
+    html[data-theme="dark"] { color-scheme:dark; } html[data-theme="dark"] body { background:#0f172a; color:#e2e8f0; } html[data-theme="dark"] .topbar,.bottom-nav { border-color:#263d62; background:rgba(15,23,42,.94); } html[data-theme="dark"] .theme-button,.section-card,.review-card,.spelling-box,.profile-hero,.word-item { border-color:#29476f; background:#172033; color:#e2e8f0; } html[data-theme="dark"] .study-card,.library-summary { border-color:#2c4a73; background:linear-gradient(135deg,#173254,#0f4b69); } html[data-theme="dark"] .study-card:after { background:#203d63; } html[data-theme="dark"] .illustration,.progress-row { background:#12365c; } html[data-theme="dark"] .library-tools { border-color:#29476f; background:rgba(15,23,42,.94); } html[data-theme="dark"] .search,.spelling-input { border-color:#334b70; background:#172033; color:#e2e8f0; } html[data-theme="dark"] .review-tab,html[data-theme="dark"] .chip,html[data-theme="dark"] .button,html[data-theme="dark"] .back { border-color:#29476f; background:#172033; color:#cbd5e1; } html[data-theme="dark"] .word-item p,html[data-theme="dark"] .profile-hero p,html[data-theme="dark"] .section-card p,html[data-theme="dark"] .forecast { color:#a8b9d1; }
+    @media (hover:hover) and (pointer:fine) { .home-action:hover,.button.primary:hover { background:#1e40af; transform:translateY(-1px); } .button:hover,.nav-link:hover,.theme-button:hover { background:#eff6ff; } .word-item:hover { border-color:#bfdbfe; } } @media (prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.01ms!important; transition-duration:.01ms!important; } } @media (max-width:480px) { main { width:min(100% - 28px,768px); padding-top:22px; } .topbar-inner { padding-inline:14px; } .study-card { border-radius:30px; } .action-row { gap:8px; } .home-action { min-height:64px; font-size:.9rem; } .review-card { min-height:370px; padding:23px 16px; } }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar"><div class="topbar-inner"><a class="brand" href="#/"><span class="brand-mark">C</span><span>英语真题背词</span></a><button id="themeToggle" class="theme-button" title="切换日间/夜间模式">☼ <span id="themeText">日间</span></button></div></header>
+    <main>
+      <section class="page" id="home">
+        <div class="home-page">
+          <div class="welcome"><p>你好，本机学习档案</p><h1>今天准备好学习了吗？</h1><p class="date" id="todayDate"></p></div>
+          <section class="study-card"><div class="study-card-head"><div><p class="overline">今日学习计划</p><h2 class="course-title">Product Design<br>高级词汇</h2></div><div style="display:flex;gap:8px"><a href="#/statistics" class="icon-button" title="学习统计">▥</a><button id="planButton" class="icon-button" title="设置每日学习计划">⚙</button></div></div>
+            <div class="illustration" aria-hidden="true"><svg viewBox="0 0 520 180" fill="none"><path d="M80 151C122 102 161 108 204 133C253 162 302 153 334 106C365 61 423 49 467 79" stroke="#93c5fd" stroke-width="20" stroke-linecap="round"/><path d="M81 151C130 125 168 120 207 136C251 154 303 148 336 106C365 69 414 58 461 80" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/><circle cx="81" cy="151" r="16" fill="#fff" stroke="#2563eb" stroke-width="7"/><circle cx="207" cy="136" r="13" fill="#dbeafe" stroke="#2563eb" stroke-width="6"/><circle cx="336" cy="106" r="14" fill="#fff" stroke="#2563eb" stroke-width="6"/><circle cx="461" cy="80" r="18" fill="#2563eb"/><path d="M455 80h12M461 74v12" stroke="white" stroke-width="3" stroke-linecap="round"/></svg></div>
+            <div class="progress-row"><div class="track"><div class="fill" id="homeFill"></div></div><p class="progress-number" id="homeProgress">0 / 0 词</p></div><p class="forecast" id="forecast"></p><p class="plan-summary" id="planSummary"></p>
+            <div class="action-row"><a class="home-action spell" href="#/spell">拼写</a><a class="home-action" href="#/review/new">新学<small id="newAction">0 词</small></a><a class="home-action" href="#/review/review">复习<small id="reviewAction">0 词</small></a></div>
+          </section>
+          <section class="home-meta" aria-label="学习概览"><div class="mini-stat"><strong id="newCount">0</strong><span>未学习</span></div><div class="mini-stat"><strong id="reviewCount">0</strong><span>待复习</span></div><div class="mini-stat"><strong id="knownCount">0</strong><span>已掌握</span></div></section>
+        </div>
+      </section>
+      <section class="page" id="words"><header class="page-header"><a class="back" href="#/">←</a><div><h1>我的词库</h1><p>内置 Product Design 高级词汇</p></div></header><section class="library-summary"><div><p class="overline">当前词书</p><h2>Product Design 词汇</h2><p>音标、释义和例句均已内置，无需联网。</p><div class="library-actions"><button class="button primary" id="importButton">导入自定义词</button><button class="button" id="exportButton">导出备份</button></div></div><div class="library-total" id="totalCount">0<span>个词汇与短语</span></div></section><section class="library-tools"><input id="search" class="search" placeholder="搜索英文、中文或词性…"><div class="filter-row" id="filters"><button class="chip active" data-filter="all">全部</button><button class="chip" data-filter="new">未学习</button><button class="chip" data-filter="review">待复习</button><button class="chip" data-filter="known">已掌握</button></div></section><div class="word-list" id="wordList"></div></section>
+      <section class="page" id="review"><header class="page-header"><a class="back" href="#/">←</a><div><h1 id="reviewTitle">新学</h1><p id="reviewSubtitle">先主动回忆，再查看释义</p></div></header><div class="review-tabs" role="tablist"><button class="review-tab active" data-mode="new" role="tab">新学</button><button class="review-tab" data-mode="review" role="tab">复习</button></div><article class="review-card"><div class="review-progress"><span id="reviewCounter">1 / 1</span><div class="track"><div class="fill" id="reviewFill"></div></div></div><span class="level" id="studyLevel"></span><h2 class="word" id="studyWord"></h2><p class="ipa" id="studyIpa"></p><p class="pos" id="studyPos"></p><p class="meaning masked" id="studyMeaning">先在心里回忆意思，再显示答案</p><p class="gloss hidden" id="studyGloss"></p><p class="example hidden" id="studyExample"></p><div class="button-row"><button class="button" id="previous">← 上一个</button><button class="button primary" id="reveal">显示释义</button><button class="button warning" id="markReview">还不熟</button><button class="button good" id="markKnown">认识了</button><button class="button" id="next">下一个 →</button></div></article></section>
+      <section class="page" id="spell"><header class="page-header"><a class="back" href="#/">←</a><div><h1>拼写练习</h1><p>根据释义，回忆对应英文</p></div></header><article class="spelling-box"><p class="overline">主动拼写</p><span class="level" id="spellingLevel"></span><h2 class="meaning" id="spellingMeaning"></h2><p class="gloss" id="spellingHint"></p><input class="spelling-input" id="spellingInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入英文单词…"><p class="feedback" id="spellingFeedback" aria-live="polite"></p><div class="button-row"><button class="button" id="showSpelling">查看答案</button><button class="button primary" id="checkSpelling">检查拼写</button><button class="button" id="nextSpelling">下一题</button></div></article></section>
+      <section class="page" id="profile"><header class="page-header"><a class="back" href="#/">←</a><div><h1>我的学习</h1><p>数据仅保存在这台设备</p></div></header><section class="profile-hero"><div class="avatar">◉</div><div><h2>本机学习档案</h2><p>无需账号；浏览器会自动保存你的学习进度。</p></div></section><section class="section-card" style="margin-top:16px"><div style="display:flex;justify-content:space-between;gap:12px"><div><p class="overline">记忆状态分布</p><h2>当前词书进度</h2></div><strong id="profileTotal" style="color:#1e3a8a;font-size:1.35rem"></strong></div><div class="bars"><div class="bar-col"><strong id="barNewValue">0</strong><div class="bar-track"><i class="bar" id="barNew"></i></div><span>新词</span></div><div class="bar-col"><strong id="barReviewValue">0</strong><div class="bar-track"><i class="bar review" id="barReview"></i></div><span>巩固中</span></div><div class="bar-col"><strong id="barKnownValue">0</strong><div class="bar-track"><i class="bar known" id="barKnown"></i></div><span>已掌握</span></div></div></section><section class="home-meta" style="margin-top:16px"><div class="mini-stat"><strong id="profileRate">0%</strong><span>已掌握率</span></div><div class="mini-stat"><strong id="profileToday">0</strong><span>今日完成</span></div><div class="mini-stat"><strong id="profileDue">0</strong><span>待处理</span></div></section><button class="reset" id="resetProgress">清除本机学习记录</button></section>
+      <section class="page" id="statistics"><header class="page-header"><a class="back" href="#/">←</a><div><h1>学习统计</h1><p>Product Design 高级词汇</p></div></header><section class="section-card"><p class="overline">今日复习</p><h2 id="statReminder">开始第一轮新学吧</h2><p id="statHint">完成学习后，这里会显示待复习词汇。</p><div class="button-row" style="justify-content:flex-start"><a class="button primary" href="#/review/review">立即复习</a></div></section><section class="section-card" style="margin-top:16px"><p class="overline">当前词书</p><h2>我的掌握现状</h2><div class="bars"><div class="bar-col"><strong id="statNew">0</strong><div class="bar-track"><i class="bar" id="statNewBar"></i></div><span>初记</span></div><div class="bar-col"><strong id="statReview">0</strong><div class="bar-track"><i class="bar review" id="statReviewBar"></i></div><span>巩固</span></div><div class="bar-col"><strong id="statKnown">0</strong><div class="bar-track"><i class="bar known" id="statKnownBar"></i></div><span>已掌握</span></div></div><p id="statSummary"></p></section></section>
+    </main>
+    <nav class="bottom-nav" aria-label="主导航"><div class="bottom-nav-inner"><a class="nav-link" data-nav="home" href="#/"><b>⌂</b><span>今日</span></a><a class="nav-link" data-nav="words" href="#/words"><b>▤</b><span>词库</span></a><a class="nav-link" data-nav="profile" href="#/profile"><b>◎</b><span>个人</span></a></div></nav>
+    <div class="modal-backdrop" id="planModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="planTitle"><h2 id="planTitle">每日学习计划</h2><p>按组推进新词学习；设置会保存在这台设备的浏览器中。</p><div class="plan-fields"><label>每天学习几组<input id="dailyGroupsInput" type="number" min="1" max="20" inputmode="numeric"></label><label>每组多少单词<input id="groupSizeInput" type="number" min="1" max="50" inputmode="numeric"></label></div><p class="plan-total" id="planTotal"></p><div class="button-row" style="justify-content:flex-end"><button class="button" id="cancelPlan">取消</button><button class="button primary" id="savePlan">保存计划</button></div></section></div>
+    <div class="modal-backdrop" id="importModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle"><h2 id="importTitle">导入自定义词汇</h2><p>可选择 TSV、CSV、TXT 或本工具导出的 JSON 备份，也可直接粘贴。导入内容只保存于当前浏览器。</p><label class="file-picker">选择词表文件<input id="importFile" type="file" accept=".tsv,.csv,.txt,.json,application/json,text/plain,text/csv,text/tab-separated-values"></label><p class="import-help">推荐格式：<br><code>word[TAB]phonetic[TAB]meaning[TAB]pos[TAB]example</code><br>首行可写表头；也支持逗号分隔的 CSV。导入本工具导出的 JSON 时，会同时恢复学习进度和学习计划。</p><details class="ai-prompt"><summary>✨ 让 AI 按导入格式整理词表</summary><div class="ai-prompt-body"><p>复制提示词到 ChatGPT，随后粘贴文章或单词列表；将 AI 的回答原样粘贴到下方即可。</p><textarea id="aiPrompt" class="ai-prompt-text" readonly>请把我随后提供的英文文章或单词列表整理成可直接导入背词工具的词表。&#10;&#10;要求：&#10;1. 只保留值得学习的实词、短语和专业词；排除 a、an、the、am、is、are、be、of、to、and、in、on、at 等基础功能词、纯人名/地名、网址和乱码。&#10;2. 按难度从高到低排序；优先保留 CET-4/CET-6 以上、学术或专业语境中有价值的词。&#10;3. 只输出 TSV 纯文本，不要 Markdown 表格、代码块、标题、序号、解释或空行。&#10;4. 第一行固定为：word[TAB]phonetic[TAB]meaning[TAB]pos[TAB]example&#10;5. 每行一个词或短语：英文原形或常用词形；phonetic 写 IPA 音标（可用 / / 包住）；meaning 写简洁中文释义；pos 写词性；example 写不超过 20 个英文词的自然例句。&#10;6. 字段之间必须使用真正的制表符 TAB 分隔，不能用竖线或多个空格代替。</textarea><div class="button-row" style="justify-content:flex-start;margin-top:9px"><button class="button" id="copyAiPrompt">复制 AI 提示词</button></div></div></details><textarea id="importText" class="paste-area" placeholder="或在此粘贴词表，例如：&#10;allocate	/ˈæləkeɪt/	分配	v.	Allocate more time to practice."></textarea><p class="import-status" id="importStatus" aria-live="polite"></p><div class="button-row" style="justify-content:flex-end"><button class="button" id="cancelImport">取消</button><button class="button primary" id="confirmImport">导入到词库</button></div></section></div>
+  </div>
+
+  <script>
+    const words = [
+      {word:'empathy', ipa:'/ˈempəθi/', pos:'n.', meaning:'同理心；共情', gloss:'理解、设身处地感受他人情绪的能力。', example:'Empathy helps designers understand users\' real problems.', level:'6k'},
+      {word:'seamless', ipa:'/ˈsiːmləs/', pos:'adj.', meaning:'无缝的；流畅连贯的', gloss:'没有明显断裂或阻碍的。', example:'The app should offer a seamless learning experience.', level:'5k'},
+      {word:'consistency', ipa:'/kənˈsɪstənsi/', pos:'n.', meaning:'一致性；连贯性', gloss:'在风格、行为或结果上保持相同。', example:'Visual consistency makes an interface easier to use.', level:'4k'},
+      {word:'interface', ipa:'/ˈɪntəfeɪs/', pos:'n.', meaning:'界面；接口', gloss:'人与程序或两个系统之间交互的接触面。', example:'A clear interface reduces the need for instructions.', level:'4k'},
+      {word:'outgrowth', ipa:'/ˈaʊtɡrəʊθ/', pos:'n.', meaning:'产物；自然的发展结果', gloss:'由某事逐渐发展出来的结果。', example:'The new service was an outgrowth of user research.', level:'11k'},
+      {word:'purview', ipa:'/ˈpɜːvjuː/', pos:'n.', meaning:'职责范围；权限', gloss:'某人负责、关心或有权处理的范围。', example:'Accessibility is within every designer\'s purview.', level:'12k'},
+      {word:'tweak', ipa:'/twiːk/', pos:'v.', meaning:'微调；稍作改进', gloss:'对某物做小幅调整以改善它。', example:'We tweaked the layout after the usability test.', level:'8k'},
+      {word:'pixel', ipa:'/ˈpɪksəl/', pos:'n.', meaning:'像素', gloss:'数字图像或屏幕上最小的显示单位。', example:'The icon is still clear at a small pixel size.', level:'7k'},
+      {word:'slick', ipa:'/slɪk/', pos:'adj.', meaning:'流畅时髦的；熟练的', gloss:'外观专业、动作顺畅，但有时带有华而不实的意味。', example:'The prototype looked slick but needed more testing.', level:'5k'},
+      {word:'demographic', ipa:'/ˌdeməˈɡræfɪk/', pos:'n./adj.', meaning:'人口统计群体；人口统计的', gloss:'按年龄、收入、地区等特征划分的人群。', example:'The team defined its target demographic clearly.', level:'4k'},
+      {word:'validate', ipa:'/ˈvælɪdeɪt/', pos:'v.', meaning:'验证；确认有效', gloss:'证明某个想法、数据或结果是正确的。', example:'Interviewing users can validate an early assumption.', level:'4k'},
+      {word:'bedrock', ipa:'/ˈbedrɒk/', pos:'n.', meaning:'基础；基石', gloss:'支撑某套思想或系统的最基本原则。', example:'Trust is the bedrock of a good product relationship.', level:'9k'},
+      {word:'expeditious', ipa:'/ˌekspəˈdɪʃəs/', pos:'adj.', meaning:'迅速高效的', gloss:'做事快且不浪费时间、资源。', example:'The team found an expeditious way to test the idea.', level:'12k'},
+      {word:'discrete', ipa:'/dɪˈskriːt/', pos:'adj.', meaning:'分离的；独立的', gloss:'彼此清晰分开、可单独识别的。', example:'The dashboard shows discrete stages of progress.', level:'6k'},
+      {word:'trepidation', ipa:'/ˌtrepɪˈdeɪʃən/', pos:'n.', meaning:'惴惴不安；担忧', gloss:'面对未知事情时的恐惧或焦虑。', example:'She launched the first version with some trepidation.', level:'10k'},
+      {word:'aesthetic', ipa:'/iːsˈθetɪk/', pos:'adj./n.', meaning:'美学的；审美风格', gloss:'与美感、视觉风格有关。', example:'The aesthetic choices support the product\'s purpose.', level:'4k'},
+      {word:'agile', ipa:'/ˈædʒaɪl/', pos:'adj.', meaning:'敏捷的；灵活的', gloss:'能够快速适应变化的；也指敏捷开发方法。', example:'An agile team learns from feedback quickly.', level:'7k'},
+      {word:'analyst', ipa:'/ˈænəlɪst/', pos:'n.', meaning:'分析师', gloss:'收集、研究并解释数据或问题的人。', example:'The data analyst identified a drop in retention.', level:'3k'},
+      {word:'avatar', ipa:'/ˈævətɑː(r)/', pos:'n.', meaning:'头像；虚拟化身', gloss:'用户在数字环境中的图像或角色代表。', example:'Users can choose an avatar for their profile.', level:'14k'},
+      {word:'behaviour', ipa:'/bɪˈheɪvjə(r)/', pos:'n.', meaning:'行为；表现', gloss:'人或系统做事、反应的方式。', example:'We observed user behaviour during the test.', level:'3k'},
+      {word:'collaboration', ipa:'/kəˌlæbəˈreɪʃən/', pos:'n.', meaning:'协作；合作', gloss:'多人为共同目标一起工作。', example:'Close collaboration improved the final design.', level:'3k'},
+      {word:'component', ipa:'/kəmˈpəʊnənt/', pos:'n.', meaning:'组成部分；组件', gloss:'系统中可以单独识别并发挥作用的一部分。', example:'A button is a basic interface component.', level:'3k'},
+      {word:'concept', ipa:'/ˈkɒnsept/', pos:'n.', meaning:'概念；构想', gloss:'对某事的抽象想法或初步方案。', example:'The concept became clearer after sketching.', level:'3k'},
+      {word:'disruptive', ipa:'/dɪsˈrʌptɪv/', pos:'adj.', meaning:'颠覆性的；造成中断的', gloss:'显著改变既有行业、流程或秩序的。', example:'The startup proposed a disruptive service model.', level:'3k'},
+      {word:'essential', ipa:'/ɪˈsenʃəl/', pos:'adj.', meaning:'必不可少的；本质的', gloss:'极其重要、缺少就无法成立的。', example:'Clear feedback is essential to learning.', level:'3k'},
+      {word:'evolve', ipa:'/ɪˈvɒlv/', pos:'v.', meaning:'逐步发展；演变', gloss:'在一段时间内逐渐变化或变得更复杂。', example:'The product will evolve with its users\' needs.', level:'3k'},
+      {word:'framework', ipa:'/ˈfreɪmwɜːk/', pos:'n.', meaning:'框架；体系', gloss:'组织想法、工作或系统的基本结构。', example:'The team used a framework to prioritize features.', level:'3k'},
+      {word:'functionality', ipa:'/ˌfʌŋkʃəˈnæləti/', pos:'n.', meaning:'功能；功能性', gloss:'产品能够完成的实际能力。', example:'New functionality should solve a real need.', level:'3k'},
+      {word:'ideation', ipa:'/ˌaɪdiˈeɪʃən/', pos:'n.', meaning:'构思；创意生成', gloss:'提出、发展和筛选想法的过程。', example:'The workshop began with an ideation session.', level:'13k'},
+      {word:'innovative', ipa:'/ˈɪnəveɪtɪv/', pos:'adj.', meaning:'创新的；新颖的', gloss:'引入新方法、想法或技术的。', example:'The solution is innovative but still practical.', level:'4k'},
+      {word:'interact', ipa:'/ˌɪntərˈækt/', pos:'v.', meaning:'互动；相互作用', gloss:'彼此交流、影响或发生作用。', example:'People interact with products in unexpected ways.', level:'3k'},
+      {word:'iterate', ipa:'/ˈɪtəreɪt/', pos:'v.', meaning:'迭代；反复改进', gloss:'反复执行、测试并改进一个过程或设计。', example:'Designers iterate on a prototype after each test.', level:'8k'},
+      {word:'linear', ipa:'/ˈlɪniə(r)/', pos:'adj.', meaning:'线性的；按顺序的', gloss:'沿直线或按固定顺序推进的。', example:'Learning is rarely a linear process.', level:'4k'},
+      {word:'manufacture', ipa:'/ˌmænjuˈfæktʃə(r)/', pos:'v./n.', meaning:'制造；生产', gloss:'大规模制作物品，也可指制造业。', example:'The company manufactures its devices locally.', level:'3k'},
+      {word:'maturity', ipa:'/məˈtʃʊərəti/', pos:'n.', meaning:'成熟；成熟阶段', gloss:'事物发展到稳定、完善状态的阶段。', example:'The product reached maturity after several years.', level:'3k'},
+      {word:'mockup', ipa:'/ˈmɒkʌp/', pos:'n.', meaning:'模型图；设计样稿', gloss:'用于展示外观或布局的静态视觉模型。', example:'The mockup helped everyone discuss the layout.', level:'4k'},
+      {word:'persona', ipa:'/pəˈsəʊnə/', pos:'n.', meaning:'用户画像；人物设定', gloss:'基于研究创建的典型用户模型。', example:'The persona kept the team focused on real needs.', level:'7k'},
+      {word:'prototype', ipa:'/ˈprəʊtətaɪp/', pos:'n./v.', meaning:'原型；制作原型', gloss:'用于测试想法的初始模型或版本。', example:'A prototype lets users react before development.', level:'5k'},
+      {word:'quantify', ipa:'/ˈkwɒntɪfaɪ/', pos:'v.', meaning:'量化；用数字表示', gloss:'用数量或数值来衡量某事。', example:'The survey helped quantify user satisfaction.', level:'5k'},
+      {word:'resonate', ipa:'/ˈrezəneɪt/', pos:'v.', meaning:'引起共鸣；产生回响', gloss:'某个想法或信息让人感到认同、印象深刻。', example:'A simple message may resonate with users.', level:'8k'},
+      {word:'resource', ipa:'/rɪˈzɔːs/', pos:'n.', meaning:'资源', gloss:'可用于完成目标的时间、资金、人员或材料。', example:'The team used its limited resources carefully.', level:'3k'},
+      {word:'satisfaction', ipa:'/ˌsætɪsˈfækʃən/', pos:'n.', meaning:'满意；满足感', gloss:'需求或期待得到满足时的感受。', example:'Ease of use has a strong effect on satisfaction.', level:'3k'},
+      {word:'stakeholder', ipa:'/ˈsteɪkhəʊldə(r)/', pos:'n.', meaning:'利益相关者', gloss:'会受项目影响或能够影响项目的人、组织。', example:'Stakeholders reviewed the research findings.', level:'扩展'},
+      {word:'tangible', ipa:'/ˈtændʒəbəl/', pos:'adj.', meaning:'有形的；可明确感知的', gloss:'可以触摸，或能明确看见、衡量的。', example:'The prototype gave the idea a tangible form.', level:'5k'},
+      {word:'usage', ipa:'/ˈjuːsɪdʒ/', pos:'n.', meaning:'使用情况；用法', gloss:'某物被使用的方式或频率。', example:'Usage data revealed the most popular feature.', level:'5k'},
+      {word:'virtual', ipa:'/ˈvɜːtʃuəl/', pos:'adj.', meaning:'虚拟的；近似的', gloss:'通过计算机模拟而非实体存在的。', example:'The class includes a virtual practice space.', level:'3k'},
+      {word:'visual', ipa:'/ˈvɪʒuəl/', pos:'adj.', meaning:'视觉的；可见的', gloss:'与看见、图像或视觉呈现有关。', example:'Use visual cues to guide attention.', level:'3k'},
+      {word:'interact with', ipa:'/ˌɪntərˈækt wɪð/', pos:'phrase', meaning:'与……互动；与……相互作用', gloss:'与人、系统或物体发生交流或影响。', example:'Users interact with the interface every day.', level:'短语'},
+      {word:'keep pace with', ipa:'/kiːp peɪs wɪð/', pos:'phrase', meaning:'跟上；与……并驾齐驱', gloss:'保持与变化、发展或他人相同的速度。', example:'The design must keep pace with new technology.', level:'短语'},
+      {word:'join forces with', ipa:'/dʒɔɪn fɔːsɪz wɪð/', pos:'phrase', meaning:'与……合作；联手', gloss:'与他人联合力量来完成目标。', example:'The designer joined forces with an engineer.', level:'短语'},
+      {word:'resonate with', ipa:'/ˈrezəneɪt wɪð/', pos:'phrase', meaning:'与……产生共鸣', gloss:'让某人感到认同或留下深刻印象。', example:'The story resonated with new users.', level:'短语'}
+    ];
+
+    // 由当前 VP-Compleat 结果的 K3+ Families 补入：去除人名、网址碎片、乱码和基础功能词。
+    words.push(
+      {word:'adjust',ipa:'/əˈdʒʌst/',pos:'v.',meaning:'调整；适应',gloss:'为适应需要而作小幅改变。',level:'3k'},
+      {word:'aim',ipa:'/eɪm/',pos:'v./n.',meaning:'旨在；目标',gloss:'努力实现某个目标；也指目标本身。',level:'3k'},
+      {word:'category',ipa:'/ˈkætəɡəri/',pos:'n.',meaning:'类别；范畴',gloss:'具有共同特征的一组事物。',level:'3k'},
+      {word:'characteristic',ipa:'/ˌkærəktəˈrɪstɪk/',pos:'n./adj.',meaning:'特征；典型的',gloss:'能显示人或事物性质的特点。',level:'3k'},
+      {word:'code',ipa:'/kəʊd/',pos:'n./v.',meaning:'代码；编码',gloss:'计算机程序指令，或将信息转换成代码。',level:'3k'},
+      {word:'collaborate',ipa:'/kəˈlæbəreɪt/',pos:'v.',meaning:'合作；协作',gloss:'与他人一起完成工作或创作。',level:'3k'},
+      {word:'contrast',ipa:'/ˈkɒntrɑːst/',pos:'n./v.',meaning:'对比；形成对照',gloss:'显示两个事物之间的差异。',level:'3k'},
+      {word:'craft',ipa:'/krɑːft/',pos:'n./v.',meaning:'技艺；精心制作',gloss:'需要熟练技巧的工作或手工制作。',level:'3k'},
+      {word:'critic',ipa:'/ˈkrɪtɪk/',pos:'n.',meaning:'评论家；批评者',gloss:'对作品、观点或行为作评价的人。',level:'3k'},
+      {word:'cycle',ipa:'/ˈsaɪkəl/',pos:'n.',meaning:'周期；循环',gloss:'重复发生的一系列阶段。',level:'3k'},
+      {word:'data',ipa:'/ˈdeɪtə/',pos:'n.',meaning:'数据',gloss:'用于分析或得出结论的事实和数字。',level:'3k'},
+      {word:'define',ipa:'/dɪˈfaɪn/',pos:'v.',meaning:'定义；界定',gloss:'说明某个词或概念的准确含义。',level:'3k'},
+      {word:'device',ipa:'/dɪˈvaɪs/',pos:'n.',meaning:'设备；装置',gloss:'为特定用途设计的机器或工具。',level:'3k'},
+      {word:'disrupt',ipa:'/dɪsˈrʌpt/',pos:'v.',meaning:'扰乱；中断',gloss:'使正常进程无法继续。',level:'3k'},
+      {word:'element',ipa:'/ˈelɪmənt/',pos:'n.',meaning:'要素；元素',gloss:'构成整体的基本部分。',level:'3k'},
+      {word:'ensure',ipa:'/ɪnˈʃʊə(r)/',pos:'v.',meaning:'确保',gloss:'采取措施使某事一定发生。',level:'3k'},
+      {word:'era',ipa:'/ˈɪərə/',pos:'n.',meaning:'时代；时期',gloss:'有特定特征的一段较长历史时期。',level:'3k'},
+      {word:'evaluate',ipa:'/ɪˈvæljueɪt/',pos:'v.',meaning:'评估；评价',gloss:'仔细判断价值、质量或重要性。',level:'3k'},
+      {word:'evolution',ipa:'/ˌiːvəˈluːʃən/',pos:'n.',meaning:'演变；发展',gloss:'逐渐变化并形成新状态的过程。',level:'3k'},
+      {word:'expert',ipa:'/ˈekspɜːt/',pos:'n.',meaning:'专家',gloss:'在某领域具备丰富知识或技能的人。',level:'3k'},
+      {word:'external',ipa:'/ɪkˈstɜːnəl/',pos:'adj.',meaning:'外部的；外来的',gloss:'来自或位于某物外部的。',level:'3k'},
+      {word:'facilitate',ipa:'/fəˈsɪlɪteɪt/',pos:'v.',meaning:'促进；使便利',gloss:'使过程或行动更容易完成。',level:'3k'},
+      {word:'focus',ipa:'/ˈfəʊkəs/',pos:'n./v.',meaning:'重点；集中注意',gloss:'给予某事主要注意力。',level:'3k'},
+      {word:'function',ipa:'/ˈfʌŋkʃən/',pos:'n./v.',meaning:'功能；起作用',gloss:'某物的用途或其正常运行。',level:'3k'},
+      {word:'generate',ipa:'/ˈdʒenəreɪt/',pos:'v.',meaning:'产生；生成',gloss:'制造、引起或创造某物。',level:'3k'},
+      {word:'graphic',ipa:'/ˈɡræfɪk/',pos:'adj./n.',meaning:'图形的；图像',gloss:'与绘图、视觉设计相关的。',level:'3k'},
+      {word:'household',ipa:'/ˈhaʊshəʊld/',pos:'n./adj.',meaning:'家庭；家用的',gloss:'住在同一住所的人；也指日常家庭使用的。',level:'3k'},
+      {word:'impact',ipa:'/ˈɪmpækt/',pos:'n./v.',meaning:'影响；冲击',gloss:'对某事产生强烈效果。',level:'3k'},
+      {word:'importance',ipa:'/ɪmˈpɔːtəns/',pos:'n.',meaning:'重要性',gloss:'某事值得重视的程度。',level:'3k'},
+      {word:'incorporate',ipa:'/ɪnˈkɔːpəreɪt/',pos:'v.',meaning:'纳入；包含',gloss:'把某部分并入整体。',level:'3k'},
+      {word:'initial',ipa:'/ɪˈnɪʃəl/',pos:'adj.',meaning:'最初的；开始的',gloss:'发生在开始阶段的。',level:'3k'},
+      {word:'innovate',ipa:'/ˈɪnəveɪt/',pos:'v.',meaning:'创新；革新',gloss:'引入新方法、想法或产品。',level:'3k'},
+      {word:'input',ipa:'/ˈɪnpʊt/',pos:'n.',meaning:'输入；投入',gloss:'提供给系统的信息、资源或建议。',level:'3k'},
+      {word:'mature',ipa:'/məˈtʃʊə(r)/',pos:'adj./v.',meaning:'成熟的；成熟',gloss:'发展到充分、稳定的阶段。',level:'3k'},
+      {word:'menu',ipa:'/ˈmenjuː/',pos:'n.',meaning:'菜单',gloss:'可供选择的项目列表。',level:'3k'},
+      {word:'mobile',ipa:'/ˈməʊbaɪl/',pos:'adj.',meaning:'移动的；移动设备的',gloss:'可移动或可在移动设备上使用的。',level:'3k'},
+      {word:'motion',ipa:'/ˈməʊʃən/',pos:'n.',meaning:'运动；动作',gloss:'移动的过程或状态。',level:'3k'},
+      {word:'origin',ipa:'/ˈɒrɪdʒɪn/',pos:'n.',meaning:'起源；来源',gloss:'某事开始或产生的地方、原因。',level:'3k'},
+      {word:'pace',ipa:'/peɪs/',pos:'n./v.',meaning:'速度；步伐',gloss:'活动进行的速度。',level:'3k'},
+      {word:'phase',ipa:'/feɪz/',pos:'n.',meaning:'阶段',gloss:'发展或过程中的一个时期。',level:'3k'},
+      {word:'philosophy',ipa:'/fɪˈlɒsəfi/',pos:'n.',meaning:'理念；哲学',gloss:'指导行动的一套基本观念。',level:'3k'},
+      {word:'potential',ipa:'/pəˈtenʃəl/',pos:'n./adj.',meaning:'潜力；潜在的',gloss:'未来可能发展或实现的能力。',level:'3k'},
+      {word:'primary',ipa:'/ˈpraɪməri/',pos:'adj.',meaning:'主要的；首要的',gloss:'最重要或最先的。',level:'3k'},
+      {word:'principle',ipa:'/ˈprɪnsəpəl/',pos:'n.',meaning:'原则；原理',gloss:'指导行为或解释现象的基本规则。',level:'3k'},
+      {word:'prospect',ipa:'/ˈprɒspekt/',pos:'n.',meaning:'前景；潜在客户',gloss:'未来成功的可能性，或潜在对象。',level:'3k'},
+      {word:'scheme',ipa:'/skiːm/',pos:'n.',meaning:'方案；计划',gloss:'为实现目的而制定的系统安排。',level:'3k'},
+      {word:'sole',ipa:'/səʊl/',pos:'adj.',meaning:'唯一的；仅有的',gloss:'没有其他同类存在的。',level:'3k'},
+      {word:'solution',ipa:'/səˈluːʃən/',pos:'n.',meaning:'解决方案',gloss:'解决问题的方法或答案。',level:'3k'},
+      {word:'solve',ipa:'/sɒlv/',pos:'v.',meaning:'解决',gloss:'找到问题的答案或处理办法。',level:'3k'},
+      {word:'strategy',ipa:'/ˈstrætədʒi/',pos:'n.',meaning:'策略；战略',gloss:'为实现长期目标制定的行动计划。',level:'3k'},
+      {word:'succeed',ipa:'/səkˈsiːd/',pos:'v.',meaning:'成功；继任',gloss:'达到目标或获得想要的结果。',level:'3k'},
+      {word:'supplement',ipa:'/ˈsʌplɪmənt/',pos:'n./v.',meaning:'补充；补充物',gloss:'添加某物以使其更完整。',level:'3k'},
+      {word:'sweat',ipa:'/swet/',pos:'v./n.',meaning:'出汗；苦干',gloss:'流汗；非正式用法指为某事辛苦操心。',level:'3k'},
+      {word:'transition',ipa:'/trænˈzɪʃən/',pos:'n.',meaning:'过渡；转变',gloss:'从一种状态转到另一种状态的过程。',level:'3k'},
+      {word:'ultimate',ipa:'/ˈʌltɪmət/',pos:'adj.',meaning:'最终的；根本的',gloss:'最后的或最重要的。',level:'3k'},
+      {word:'animate',ipa:'/ˈænɪmeɪt/',pos:'v.',meaning:'使有动画；赋予活力',gloss:'使图像看起来在移动，或使人有活力。',level:'4k'},
+      {word:'bulk',ipa:'/bʌlk/',pos:'n.',meaning:'大部分；体积',gloss:'数量或体积中最大的部分。',level:'4k'},
+      {word:'demography',ipa:'/dɪˈmɒɡrəfi/',pos:'n.',meaning:'人口统计学',gloss:'研究人口规模、结构和变化的学科。',level:'4k'},
+      {word:'loop',ipa:'/luːp/',pos:'n./v.',meaning:'循环；回路',gloss:'重复执行的一系列步骤或闭合路径。',level:'4k'},
+      {word:'maximise',ipa:'/ˈmæksɪmaɪz/',pos:'v.',meaning:'最大化',gloss:'使数量、价值或效果尽可能大。',level:'4k'},
+      {word:'mock',ipa:'/mɒk/',pos:'n./adj./v.',meaning:'模拟的；样品；嘲笑',gloss:'为展示或测试而制作的仿真版本。',level:'4k'},
+      {word:'ongoing',ipa:'/ˈɒnɡəʊɪŋ/',pos:'adj.',meaning:'持续进行的',gloss:'正在发生且尚未结束的。',level:'4k'},
+      {word:'proposition',ipa:'/ˌprɒpəˈzɪʃən/',pos:'n.',meaning:'主张；提议',gloss:'可供讨论或接受的想法、提案。',level:'4k'},
+      {word:'refine',ipa:'/rɪˈfaɪn/',pos:'v.',meaning:'改进；提炼',gloss:'通过小幅调整使其更准确或更好。',level:'4k'},
+      {word:'span',ipa:'/spæn/',pos:'n./v.',meaning:'跨度；跨越',gloss:'从一端延伸到另一端的范围或时间。',level:'4k'},
+      {word:'spark',ipa:'/spɑːk/',pos:'n./v.',meaning:'火花；激发',gloss:'引发某种反应、想法或变化。',level:'4k'},
+      {word:'swift',ipa:'/swɪft/',pos:'adj.',meaning:'迅速的',gloss:'发生或行动很快的。',level:'4k'},
+      {word:'thread',ipa:'/θred/',pos:'n./v.',meaning:'线索；贯穿',gloss:'贯穿多处内容的共同主题或线。',level:'4k'},
+      {word:'utilise',ipa:'/ˈjuːtəlaɪz/',pos:'v.',meaning:'利用；使用',gloss:'为了特定目的有效地使用某物。',level:'4k'},
+      {word:'appliance',ipa:'/əˈplaɪəns/',pos:'n.',meaning:'家用电器；器具',gloss:'通常在家中使用的电气设备。',level:'5k'},
+      {word:'beta',ipa:'/ˈbiːtə/',pos:'n./adj.',meaning:'测试版；测试阶段的',gloss:'正式发布前供测试的版本。',level:'5k'},
+      {word:'icon',ipa:'/ˈaɪkɒn/',pos:'n.',meaning:'图标；偶像',gloss:'界面中代表功能的小图形。',level:'5k'},
+      {word:'logo',ipa:'/ˈləʊɡəʊ/',pos:'n.',meaning:'标志；徽标',gloss:'代表品牌或组织的图形符号。',level:'5k'},
+      {word:'seam',ipa:'/siːm/',pos:'n.',meaning:'接缝；交界处',gloss:'两块材料连接的线或边界。',level:'5k'},
+      {word:'gloss',ipa:'/ɡlɒs/',pos:'n.',meaning:'注释；光泽',gloss:'对词语的简短解释；也指表面光泽。',level:'6k'},
+      {word:'queue',ipa:'/kjuː/',pos:'n./v.',meaning:'队列；排队',gloss:'等待处理的人或任务的顺序列表。',level:'6k'}
+    );
+
+    // 同一篇文章的 K2 内容词：保留实词，仍不加入 a、am、is 等基础功能词。
+    const k2Words = [
+      ['according','/əˈkɔːdɪŋ/','prep.','根据'],['apply','/əˈplaɪ/','v.','应用；申请'],['approach','/əˈprəʊtʃ/','n./v.','方法；接近'],['attempt','/əˈtempt/','n./v.','尝试'],['available','/əˈveɪləbəl/','adj.','可获得的'],['brand','/brænd/','n.','品牌'],['broad','/brɔːd/','adj.','广泛的'],['calm','/kɑːm/','adj./v.','平静的；使平静'],['capable','/ˈkeɪpəbəl/','adj.','有能力的'],['common','/ˈkɒmən/','adj.','常见的'],['complicate','/ˈkɒmplɪkeɪt/','v.','使复杂化'],['connect','/kəˈnekt/','v.','连接；联系'],['correct','/kəˈrekt/','adj.','正确的'],['create','/kriˈeɪt/','v.','创造'],['customer','/ˈkʌstəmə(r)/','n.','顾客'],['describe','/dɪˈskraɪb/','v.','描述'],['design','/dɪˈzaɪn/','n./v.','设计'],['detail','/ˈdiːteɪl/','n.','细节'],['determine','/dɪˈtɜːmɪn/','v.','确定；决定'],['develop','/dɪˈveləp/','v.','发展；开发'],['discipline','/ˈdɪsəplɪn/','n.','学科；纪律'],['entire','/ɪnˈtaɪə(r)/','adj.','整个的'],['establish','/ɪˈstæblɪʃ/','v.','建立'],['eventually','/ɪˈventʃuəli/','adv.','最终'],['extreme','/ɪkˈstriːm/','adj.','极端的'],['feature','/ˈfiːtʃə(r)/','n.','特点；功能'],['frame','/freɪm/','n.','框架；帧'],['frustrate','/frʌˈstreɪt/','v.','使沮丧'],['furniture','/ˈfɜːnɪtʃə(r)/','n.','家具'],['goal','/ɡəʊl/','n.','目标'],['habit','/ˈhæbɪt/','n.','习惯'],['identify','/aɪˈdentɪfaɪ/','v.','识别；确认'],['image','/ˈɪmɪdʒ/','n.','图像；印象'],['immediate','/ɪˈmiːdiət/','adj.','立即的；直接的'],['improve','/ɪmˈpruːv/','v.','改善'],['include','/ɪnˈkluːd/','v.','包括'],['increase','/ɪnˈkriːs/','v./n.','增加'],['individual','/ˌɪndɪˈvɪdʒuəl/','n./adj.','个人；个体的'],['industry','/ˈɪndəstri/','n.','行业；工业'],['interview','/ˈɪntəvjuː/','n./v.','访谈；面试'],['introduce','/ˌɪntrəˈdjuːs/','v.','介绍；引入'],['journey','/ˈdʒɜːni/','n.','旅程；过程'],['knowledge','/ˈnɒlɪdʒ/','n.','知识'],['lean','/liːn/','adj.','精益的；瘦的'],['limit','/ˈlɪmɪt/','n./v.','限制'],['lone','/ləʊn/','adj.','孤身的；唯一的'],['manner','/ˈmænə(r)/','n.','方式；举止'],['mass','/mæs/','n./adj.','大量；大规模的'],['narrow','/ˈnærəʊ/','adj.','狭窄的；有限的'],['organize','/ˈɔːɡənaɪz/','v.','组织；整理'],['partner','/ˈpɑːtnə(r)/','n.','伙伴'],['path','/pɑːθ/','n.','路径'],['pattern','/ˈpætən/','n.','模式'],['perform','/pəˈfɔːm/','v.','执行；表现'],['physical','/ˈfɪzɪkəl/','adj.','实体的；身体的'],['popular','/ˈpɒpjələ(r)/','adj.','受欢迎的'],['population','/ˌpɒpjuˈleɪʃən/','n.','人口；群体'],['practise','/ˈpræktɪs/','v.','练习；实践'],['prefer','/prɪˈfɜː(r)/','v.','更喜欢'],['process','/ˈprəʊses/','n./v.','过程；处理'],['produce','/prəˈdjuːs/','v.','生产；产生'],['product','/ˈprɒdʌkt/','n.','产品'],['profession','/prəˈfeʃən/','n.','职业'],['progress','/ˈprəʊɡres/','n.','进展'],['prove','/pruːv/','v.','证明'],['provide','/prəˈvaɪd/','v.','提供'],['quality','/ˈkwɒləti/','n.','质量'],['rapid','/ˈræpɪd/','adj.','迅速的'],['receive','/rɪˈsiːv/','v.','接收'],['reduce','/rɪˈdjuːs/','v.','减少'],['refer','/rɪˈfɜː(r)/','v.','提到；指向'],['remain','/rɪˈmeɪn/','v.','保持；仍然是'],['repeat','/rɪˈpiːt/','v./n.','重复'],['require','/rɪˈkwaɪə(r)/','v.','需要；要求'],['research','/rɪˈsɜːtʃ/','n./v.','研究'],['result','/rɪˈzʌlt/','n.','结果'],['risk','/rɪsk/','n./v.','风险；冒险'],['role','/rəʊl/','n.','角色；作用'],['scene','/siːn/','n.','场景；场面'],['screen','/skriːn/','n.','屏幕'],['select','/sɪˈlekt/','v.','选择'],['separate','/ˈsepəreɪt/','v./adj.','分开；独立的'],['shift','/ʃɪft/','n./v.','转变；移动'],['similar','/ˈsɪmɪlə(r)/','adj.','相似的'],['site','/saɪt/','n.','地点；网站'],['smooth','/smuːð/','adj.','平滑的；顺利的'],['society','/səˈsaɪəti/','n.','社会'],['specific','/spəˈsɪfɪk/','adj.','具体的；特定的'],['speed','/spiːd/','n.','速度'],['success','/səkˈses/','n.','成功'],['technology','/tekˈnɒlədʒi/','n.','技术'],['unit','/ˈjuːnɪt/','n.','单位；单元'],['value','/ˈvæljuː/','n.','价值'],['vary','/ˈveəri/','v.','变化；不同'],['version','/ˈvɜːʃən/','n.','版本'],['welcome','/ˈwelkəm/','v./adj.','欢迎的；欢迎']
+    ];
+    words.push(...k2Words.map(([word, ipa, pos, meaning]) => ({ word, ipa, pos, meaning, gloss:meaning, level:'2k' })));
+
+    // K1 中保留文章实词，作为高阶词完成后的后续学习内容；功能词未加入。
+    const k1Content = `ability|能力;actual|实际的;address|处理；地址;allow|允许;appear|出现;arrange|安排;art|艺术;base|基础;begin|开始;break|打破;bring|带来;build|建立;business|商业;call|称为;case|情况;centre|中心;chance|机会;change|变化;clear|清楚的;colour|颜色;company|公司;computer|计算机;continue|继续;control|控制;cost|成本;cross|跨越;draw|绘制;drive|驱动;early|早的;end|结束;enough|足够的;experience|经验;explain|解释;express|表达;fear|恐惧;feed|供给;feel|感到;fit|适合;follow|跟随;force|力量;form|形式;friend|朋友;full|完整的;give|给;group|组;hand|手;happen|发生;happy|快乐的;history|历史;hold|保持;huge|巨大的;idea|想法;imagine|想象;inform|通知;interest|兴趣;involve|涉及;job|工作;join|加入;keep|保持;key|关键;large|大的;lay|放置;lead|引导;learn|学习;life|生活;look|看;machine|机器;main|主要的;major|主要的;make|制作;manage|管理;market|市场;mean|意味着;meet|遇到;member|成员;million|百万;money|金钱;month|月份;move|移动;name|名称;nature|自然;necessary|必要的;need|需要;number|数量;offer|提供;order|顺序;own|自己的;part|部分;particular|特定的;people|人们;person|人;phone|电话;plan|计划;play|发挥;point|要点;possible|可能的;present|呈现;problem|问题;programme|程序;quick|快速的;reach|到达;real|真实的;realise|意识到;relate|相关;responsible|负责的;run|运行;safe|安全的;science|科学;set|设置;shape|形状;share|分享;ship|运输;short|短的;side|一侧;simple|简单的;situation|情况;small|小的;space|空间;special|特别的;state|状态;step|步骤;study|学习;suggest|建议;system|系统;take|采取;team|团队;tend|倾向;test|测试;think|思考;time|时间;true|真实的;type|类型;understand|理解;use|使用;want|想要;waste|浪费;watch|观察;way|方式;web|网络;whole|完整的;wide|宽的;work|工作;world|世界;worry|担心;write|写;year|年;zero|零`;
+    words.push(...k1Content.split(';').map(pair => { const [word, meaning] = pair.split('|'); return { word, ipa:'', pos:'常用实词', meaning, gloss:meaning, level:'1k' }; }));
+
+    const storageKey = 'product-design-vocab-progress-v2';
+    const customWordsKey = 'product-design-vocab-custom-words-v1';
+    const planKey = 'product-design-vocab-plan-v1';
+    let progress = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    let customWords = [];
+    try { customWords = JSON.parse(localStorage.getItem(customWordsKey) || '[]'); } catch { customWords = []; }
+    const builtInWordKeys = new Set(words.map(item => item.word.toLowerCase()));
+    customWords = Array.isArray(customWords) ? customWords.filter(item => item && typeof item.word === 'string' && typeof item.meaning === 'string' && !builtInWordKeys.has(item.word.toLowerCase())) : [];
+    words.push(...customWords);
+    let plan = JSON.parse(localStorage.getItem(planKey) || '{"groups":2,"size":10}');
+    plan = { groups:Math.min(20,Math.max(1,Number(plan.groups) || 2)), size:Math.min(50,Math.max(1,Number(plan.size) || 10)) };
+    let reviewMode = 'new', reviewIndex = 0, revealed = false, spellingWord = null, listFilter = 'all';
+    const $ = id => document.getElementById(id);
+    const difficulty = item => Number.parseInt(item.level, 10) || (item.level === '扩展' ? 15 : 2);
+    let learningOrder = [];
+    const rebuildOrder = () => { learningOrder = [...words].sort((a, b) => difficulty(b) - difficulty(a) || a.word.localeCompare(b.word)); };
+    rebuildOrder();
+    const saved = item => { const value = progress[item.word]; return typeof value === 'string' ? { state:value } : value || { state:'new' }; };
+    const stateOf = item => saved(item).state || 'new';
+    const save = () => localStorage.setItem(storageKey, JSON.stringify(progress));
+    const mark = (item, state) => { progress[item.word] = { state, date:new Date().toDateString() }; save(); renderAll(); };
+    const counts = () => ({ new:words.filter(w => stateOf(w) === 'new').length, review:words.filter(w => stateOf(w) === 'review').length, known:words.filter(w => stateOf(w) === 'known').length });
+    const dailyTarget = () => plan.groups * plan.size;
+    const activeQueue = () => { const source = reviewMode === 'new' ? learningOrder.filter(w => stateOf(w) === 'new') : learningOrder.filter(w => stateOf(w) !== 'new'); return (source.length ? source : learningOrder).slice(0, dailyTarget()); };
+    function setRoute() {
+      const path = location.hash.replace('#','') || '/';
+      const page = path === '/' ? 'home' : path.startsWith('/words') ? 'words' : path.startsWith('/profile') ? 'profile' : path.startsWith('/spell') ? 'spell' : path.startsWith('/statistics') ? 'statistics' : 'review';
+      if (path === '/review/review') reviewMode = 'review'; if (path === '/review/new') reviewMode = 'new';
+      document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === page));
+      document.querySelectorAll('.nav-link').forEach(el => el.classList.toggle('active', el.dataset.nav === (page === 'review' || page === 'spell' || page === 'statistics' ? 'home' : page)));
+      if (page === 'review') { reviewIndex = 0; revealed = false; renderReview(); }
+      if (page === 'spell') newSpellingQuestion();
+      if (page === 'words') renderList();
+      window.scrollTo({ top:0, behavior:'instant' });
+    }
+    function renderDashboard() {
+      const c = counts(), learned = c.review + c.known, rate = Math.round(learned / words.length * 100);
+      $('todayDate').textContent = new Intl.DateTimeFormat('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' }).format(new Date());
+      $('homeFill').style.width = `${rate}%`; $('homeProgress').textContent = `${learned} / ${words.length} 词`;
+      $('forecast').textContent = `今日待复习 ${Math.min(c.review, dailyTarget())} 词 · 完成一轮新学后会自动加入复习队列`;
+      $('planSummary').textContent = `每日 ${plan.groups} 组 × 每组 ${plan.size} 词 = ${dailyTarget()} 词`;
+      $('newCount').textContent = c.new; $('reviewCount').textContent = c.review; $('knownCount').textContent = c.known;
+      $('newAction').textContent = `${Math.min(c.new, dailyTarget())} 词`; $('reviewAction').textContent = `${Math.min(c.review, dailyTarget())} 词`;
+      $('totalCount').textContent = words.length;
+      $('profileTotal').textContent = `${words.length} 词`; $('profileRate').textContent = `${Math.round(c.known / words.length * 100)}%`; $('profileToday').textContent = Object.values(progress).filter(value => (typeof value === 'string' ? {} : value).date === new Date().toDateString()).length;
+      $('profileDue').textContent = c.review; updateBars('bar', c); updateBars('stat', c);
+      $('statReminder').textContent = c.review ? `有 ${c.review} 个单词正处于最佳复习时间` : '开始第一轮新学吧';
+      $('statHint').textContent = c.review ? '及时复习可以有效降低遗忘。' : '从高难度词开始，逐步学习整本词书。';
+      $('statSummary').textContent = `当前已学习 ${learned} / ${words.length} 词 · 已掌握 ${c.known} 词`;
+    }
+    function updateBars(prefix, c) { const max = Math.max(c.new,c.review,c.known,1); [['New',c.new],['Review',c.review],['Known',c.known]].forEach(([key,value]) => { const bar = $(`${prefix}${key}Bar`) || $(`${prefix}${key}`); const label = $(`${prefix}${key}Value`) || $(`${prefix}${key}`); if (bar) bar.style.height = `${Math.max(5, value / max * 100)}%`; if (label && label !== bar) label.textContent = value; }); }
+    function renderReview() {
+      const queue = activeQueue(); reviewIndex = Math.min(reviewIndex, queue.length - 1); const w = queue[reviewIndex];
+      $('reviewTitle').textContent = reviewMode === 'new' ? '新学' : '复习'; $('reviewSubtitle').textContent = reviewMode === 'new' ? '从难词开始，先主动回忆再看释义' : '复习已学习过的词汇';
+      document.querySelectorAll('.review-tab').forEach(tab => { const active = tab.dataset.mode === reviewMode; tab.classList.toggle('active',active); tab.setAttribute('aria-selected',active); });
+      const currentGroup = Math.floor(reviewIndex / plan.size) + 1;
+      $('reviewCounter').textContent = `第 ${currentGroup} 组 · ${reviewIndex + 1} / ${queue.length}`; $('reviewFill').style.width = `${(reviewIndex + 1) / queue.length * 100}%`;
+      $('studyLevel').textContent = w.level; $('studyWord').textContent = w.word; $('studyIpa').textContent = w.ipa || '音标待补充'; $('studyPos').textContent = w.pos || '词性待补充';
+      $('studyMeaning').textContent = revealed ? w.meaning : '先在心里回忆意思，再显示答案'; $('studyMeaning').classList.toggle('masked',!revealed);
+      $('studyGloss').textContent = w.gloss || w.meaning; $('studyExample').textContent = w.example || '可在自定义导入时补充例句。'; $('studyGloss').classList.toggle('hidden',!revealed); $('studyExample').classList.toggle('hidden',!revealed); $('reveal').textContent = revealed ? '收起释义' : '显示释义';
+    }
+    function newSpellingQuestion() { spellingWord = activeQueue()[Math.floor(Math.random() * activeQueue().length)]; $('spellingLevel').textContent = spellingWord.level; $('spellingMeaning').textContent = spellingWord.meaning; $('spellingHint').textContent = `${spellingWord.pos} · ${spellingWord.gloss}`; $('spellingInput').value = ''; $('spellingFeedback').textContent = ''; $('spellingFeedback').className = 'feedback'; }
+    function normalized(value) { return value.trim().toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' '); }
+    function checkSpelling() { const typed = normalized($('spellingInput').value); if (!typed) return showSpellingFeedback('先试着输入答案吧。','bad'); if (typed === normalized(spellingWord.word)) { mark(spellingWord,'known'); showSpellingFeedback('拼写正确，已记为掌握。','good'); } else { mark(spellingWord,'review'); showSpellingFeedback(`还差一点，正确拼写是：${spellingWord.word}`,'bad'); } }
+    function showSpellingFeedback(message, tone='') { $('spellingFeedback').textContent = message; $('spellingFeedback').className = `feedback ${tone}`; }
+    function renderList() { const query = $('search').value.trim().toLowerCase(); const items = learningOrder.filter(w => (!query || [w.word,w.meaning,w.pos,w.gloss].join(' ').toLowerCase().includes(query)) && (listFilter === 'all' || stateOf(w) === listFilter)); $('wordList').innerHTML = items.length ? '' : '<div class="empty">没有匹配的词汇</div>'; items.forEach(w => { const state = stateOf(w); const item = document.createElement('article'); item.className = 'word-item'; item.innerHTML = `<div class="word-item-top"><div><h3>${w.word}</h3><p class="ipa">${w.ipa} · ${w.pos}</p></div><span class="state ${state}">${state === 'new' ? '未学习' : state === 'review' ? '待复习' : '已掌握'}</span></div><p>${w.meaning}</p>`; $('wordList').appendChild(item); }); }
+    function renderAll() { renderDashboard(); renderList(); renderReview(); }
+    $('previous').onclick = () => { const q = activeQueue(); reviewIndex = (reviewIndex - 1 + q.length) % q.length; revealed = false; renderReview(); };
+    $('next').onclick = () => { const q = activeQueue(); reviewIndex = (reviewIndex + 1) % q.length; revealed = false; renderReview(); };
+    $('reveal').onclick = () => { revealed = !revealed; renderReview(); };
+    $('markKnown').onclick = () => { mark(activeQueue()[reviewIndex], 'known'); revealed = true; };
+    $('markReview').onclick = () => { mark(activeQueue()[reviewIndex], 'review'); revealed = true; };
+    document.querySelectorAll('.review-tab').forEach(tab => tab.onclick = () => { reviewMode = tab.dataset.mode; reviewIndex = 0; revealed = false; renderReview(); });
+    $('checkSpelling').onclick = checkSpelling; $('showSpelling').onclick = () => { mark(spellingWord,'review'); showSpellingFeedback(`答案：${spellingWord.word}  ${spellingWord.ipa}`); }; $('nextSpelling').onclick = newSpellingQuestion; $('spellingInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkSpelling(); });
+    $('search').addEventListener('input', renderList); document.querySelectorAll('.chip').forEach(chip => chip.onclick = () => { listFilter = chip.dataset.filter; document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active',c === chip)); renderList(); });
+    $('themeToggle').onclick = () => { const dark = document.documentElement.dataset.theme !== 'dark'; document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('product-design-vocab-theme', dark ? 'dark' : 'light'); $('themeText').textContent = dark ? '夜间' : '日间'; };
+    function closeImport() { $('importModal').classList.remove('open'); $('importModal').setAttribute('aria-hidden','true'); }
+    function openImport() { $('importFile').value = ''; $('importText').value = ''; $('importStatus').textContent = ''; $('importModal').classList.add('open'); $('importModal').setAttribute('aria-hidden','false'); $('importText').focus(); }
+    async function copyAiPrompt() { const prompt = $('aiPrompt'); prompt.select(); try { if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(prompt.value); else if (!document.execCommand('copy')) throw new Error('copy failed'); $('importStatus').textContent = 'AI 提示词已复制：粘贴到 ChatGPT 后，再附上你的文章或单词列表。'; } catch { $('importStatus').textContent = '复制失败，请长按提示词文本后手动复制。'; } }
+    function splitDelimited(line, delimiter) {
+      const cells = []; let cell = '', quoted = false;
+      for (let index = 0; index < line.length; index += 1) { const char = line[index]; if (char === '"') { if (quoted && line[index + 1] === '"') { cell += '"'; index += 1; } else quoted = !quoted; } else if (char === delimiter && !quoted) { cells.push(cell.trim()); cell = ''; } else cell += char; }
+      cells.push(cell.trim()); return cells;
+    }
+    function parseImportedWords(text) {
+      const raw = text.trim();
+      if (raw.startsWith('{')) {
+        let backup;
+        try { backup = JSON.parse(raw); } catch { return { added:[], duplicates:0, invalid:1, error:'JSON 备份文件无法识别。' }; }
+        if (backup.format !== 'product-design-vocab-backup-v1' || !Array.isArray(backup.customWords)) return { added:[], duplicates:0, invalid:1, error:'这不是本工具导出的备份文件。' };
+        const known = new Set(words.map(item => normalized(item.word))); let duplicates = 0, invalid = 0; const added = [];
+        backup.customWords.forEach(item => { const word = normalized(item && item.word || ''); const meaning = item && typeof item.meaning === 'string' ? item.meaning.trim() : ''; if (!word || !meaning || !/^[a-z][a-z' -]*$/i.test(word)) { invalid += 1; return; } if (known.has(word)) { duplicates += 1; return; } known.add(word); added.push({ word, ipa:typeof item.ipa === 'string' ? item.ipa.trim() : '', meaning, gloss:typeof item.gloss === 'string' ? item.gloss : meaning, pos:typeof item.pos === 'string' && item.pos.trim() ? item.pos.trim() : '自定义词汇', example:typeof item.example === 'string' ? item.example.trim() : '', level:'自定义', source:'自定义导入' }); });
+        return { added, duplicates, invalid, backup };
+      }
+      const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return { added:[], duplicates:0, invalid:0 };
+      const delimiter = lines[0].includes('\t') ? '\t' : ',';
+      const rows = lines.map(line => splitDelimited(line, delimiter));
+      const names = rows[0].map(value => value.trim().toLowerCase());
+      const aliases = { word:['word','单词','英文','english'], ipa:['phonetic','ipa','音标','pronunciation'], meaning:['meaning','释义','中文','translation','解释'], pos:['pos','词性','type'], example:['example','例句','sentence'] };
+      const indexOf = key => names.findIndex(value => aliases[key].includes(value));
+      const columns = Object.fromEntries(Object.keys(aliases).map(key => [key,indexOf(key)]));
+      const hasHeader = columns.word !== -1 && columns.meaning !== -1;
+      const known = new Set(words.map(item => normalized(item.word))); let duplicates = 0, invalid = 0; const added = [];
+      rows.slice(hasHeader ? 1 : 0).forEach(row => {
+        let word, ipa, meaning, pos, example;
+        if (hasHeader) { word = row[columns.word]; ipa = columns.ipa === -1 ? '' : row[columns.ipa]; meaning = row[columns.meaning]; pos = columns.pos === -1 ? '' : row[columns.pos]; example = columns.example === -1 ? '' : row[columns.example]; }
+        else { word = row[0]; const second = row[1] || ''; const phoneticFirst = /^[\/[]/.test(second); ipa = phoneticFirst ? second : ''; meaning = phoneticFirst ? row[2] : second; pos = phoneticFirst ? row[3] : row[2]; example = phoneticFirst ? row[4] : row[3]; }
+        word = normalized(word || ''); meaning = (meaning || '').trim();
+        if (!word || !meaning || !/^[a-z][a-z' -]*$/i.test(word)) { invalid += 1; return; }
+        if (known.has(word)) { duplicates += 1; return; }
+        known.add(word); added.push({ word, ipa:(ipa || '').trim(), meaning, gloss:meaning, pos:(pos || '自定义词汇').trim(), example:(example || '').trim(), level:'自定义', source:'自定义导入' });
+      });
+      return { added, duplicates, invalid };
+    }
+    $('importButton').onclick = openImport; $('cancelImport').onclick = closeImport;
+    $('copyAiPrompt').onclick = copyAiPrompt;
+    $('importModal').onclick = event => { if (event.target === $('importModal')) closeImport(); };
+    $('importFile').addEventListener('change', async event => { const file = event.target.files && event.target.files[0]; if (!file) return; if (file.size > 1024 * 1024) { $('importStatus').textContent = '文件超过 1 MB，请拆分后再导入。'; return; } try { $('importText').value = await file.text(); $('importStatus').textContent = `已读取 ${file.name}，确认后将导入。`; } catch { $('importStatus').textContent = '文件读取失败，请改为直接粘贴内容。'; } });
+    $('confirmImport').onclick = () => { const result = parseImportedWords($('importText').value); if (!result.added.length && !result.backup) { $('importStatus').textContent = result.error || (result.duplicates || result.invalid ? `没有可导入的新词（重复 ${result.duplicates} 条，无效 ${result.invalid} 条）。` : '请先粘贴词表或选择文件。'); return; } customWords.push(...result.added); words.push(...result.added); if (result.backup) { if (result.backup.progress && typeof result.backup.progress === 'object') progress = result.backup.progress; if (result.backup.plan && typeof result.backup.plan === 'object') plan = { groups:Math.min(20,Math.max(1,Number(result.backup.plan.groups) || 2)), size:Math.min(50,Math.max(1,Number(result.backup.plan.size) || 10)) }; localStorage.setItem(planKey, JSON.stringify(plan)); save(); } localStorage.setItem(customWordsKey, JSON.stringify(customWords)); rebuildOrder(); renderAll(); $('importStatus').textContent = result.backup ? `已恢复备份：导入 ${result.added.length} 条；跳过重复 ${result.duplicates} 条、无效 ${result.invalid} 条。` : `已导入 ${result.added.length} 条；跳过重复 ${result.duplicates} 条、无效 ${result.invalid} 条。`; };
+    $('exportButton').onclick = () => { const payload = { format:'product-design-vocab-backup-v1', exportedAt:new Date().toISOString(), customWords, progress, plan }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `product-design-vocab-backup-${new Date().toISOString().slice(0,10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0); };
+    function updatePlanTotal() { const groups = Math.min(20,Math.max(1,Number($('dailyGroupsInput').value) || 1)); const size = Math.min(50,Math.max(1,Number($('groupSizeInput').value) || 1)); $('planTotal').textContent = `每天共学习 ${groups * size} 个新词（${groups} 组 × ${size} 词）`; }
+    function openPlan() { $('dailyGroupsInput').value = plan.groups; $('groupSizeInput').value = plan.size; updatePlanTotal(); $('planModal').classList.add('open'); $('planModal').setAttribute('aria-hidden','false'); $('dailyGroupsInput').focus(); }
+    function closePlan() { $('planModal').classList.remove('open'); $('planModal').setAttribute('aria-hidden','true'); }
+    $('planButton').onclick = openPlan; $('cancelPlan').onclick = closePlan; ['dailyGroupsInput','groupSizeInput'].forEach(id => $(id).addEventListener('input',updatePlanTotal));
+    $('savePlan').onclick = () => { plan = { groups:Math.min(20,Math.max(1,Number($('dailyGroupsInput').value) || 2)), size:Math.min(50,Math.max(1,Number($('groupSizeInput').value) || 10)) }; localStorage.setItem(planKey,JSON.stringify(plan)); reviewIndex = 0; closePlan(); renderAll(); };
+    $('planModal').onclick = event => { if (event.target === $('planModal')) closePlan(); }; document.addEventListener('keydown',event => { if (event.key === 'Escape') { closePlan(); closeImport(); } });
+    $('resetProgress').onclick = () => { if (confirm('确定清除这台设备上的学习记录吗？')) { progress = {}; save(); renderAll(); } };
+    const savedTheme = localStorage.getItem('product-design-vocab-theme'); if (savedTheme === 'dark') { document.documentElement.dataset.theme = 'dark'; $('themeText').textContent = '夜间'; }
+    window.addEventListener('hashchange', setRoute); renderAll(); setRoute();
+  </script>
+</body>
+</html>
