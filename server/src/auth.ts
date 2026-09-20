@@ -27,10 +27,6 @@ export function assertPasswordPolicy(password: string): void {
   if (password.length > 200) {
     throw new Error("密码过长。");
   }
-  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password));
-  if (classes.length < 3) {
-    throw new Error("密码需要包含小写字母、大写字母、数字、符号中的至少三类。");
-  }
 }
 
 export function hashPassword(password: string): Promise<string> {
