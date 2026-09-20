@@ -82,7 +82,15 @@ test(
       );
       assert.deepEqual(
         adminColumns.map((row) => `${row.table_name}.${row.column_name}`).sort(),
-        ["admin_audit_logs.id", "users.disabled_at", "users.role"],
+        [
+          "admin_audit_logs.action",
+          "admin_audit_logs.actor_user_id",
+          "admin_audit_logs.created_at",
+          "admin_audit_logs.id",
+          "admin_audit_logs.target_user_id",
+          "users.disabled_at",
+          "users.role",
+        ],
       );
 
       await repository.createUser({
