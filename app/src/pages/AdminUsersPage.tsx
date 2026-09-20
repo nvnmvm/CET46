@@ -150,7 +150,7 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
       <fieldset disabled={saving || loading} className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm">邮箱<input className="min-w-0 rounded-xl border p-3" type="email" autoComplete="off" required maxLength={254} value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label className="grid gap-2 text-sm">显示名称<input className="min-w-0 rounded-xl border p-3" required maxLength={40} value={username} onChange={e => setUsername(e.target.value)} /></label>
-        <label className="grid gap-2 text-sm sm:col-span-2">初始密码<input className="min-w-0 rounded-xl border p-3" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} /><span className="text-slate-500">使用至少 12 位的独立密码，通过私下安全渠道交给账号本人。</span></label>
+        <label className="grid gap-2 text-sm sm:col-span-2">初始密码<input className="min-w-0 rounded-xl border p-3" type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} /><span className="text-slate-500">使用至少 8 位的独立密码，通过私下安全渠道交给账号本人。</span></label>
         <button className="button-primary" type="submit">{saving ? "正在保存…" : "创建账号"}</button>
       </fieldset>
     </form>}
@@ -171,7 +171,7 @@ export default function AdminUsersPage({ currentUserId }: { currentUserId: strin
       <h2 id="admin-confirm-title" ref={confirmHeading} tabIndex={-1} className="break-all font-semibold">确认{action === "password" ? "重置密码" : target.disabledAt ? "启用账号" : "禁用账号"}：{target.email}</h2>
       <p className="my-3 text-sm">{action === "password" ? "旧密码将失效，所有已登录设备将需要重新登录。" : target.disabledAt ? "此账号将可以再次登录。" : "此账号将无法登录，已登录设备的会话也会失效；学习数据不会删除。"}</p>
       <fieldset disabled={saving} className="space-y-3">
-        {action === "password" && <label className="grid gap-2 text-sm">新密码<input className="min-w-0 rounded-xl border p-3" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={resetPassword} onChange={e => setResetPassword(e.target.value)} /></label>}
+        {action === "password" && <label className="grid gap-2 text-sm">新密码<input className="min-w-0 rounded-xl border p-3" type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={resetPassword} onChange={e => setResetPassword(e.target.value)} /></label>}
         <div className="flex flex-wrap gap-3"><button className="button-primary" type="submit">{saving ? "正在保存…" : "确认操作"}</button><button className="button-secondary" type="button" onClick={cancel}>取消</button></div>
       </fieldset>
     </form>}

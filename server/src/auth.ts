@@ -11,7 +11,7 @@ import { SESSION_COOKIE_NAME } from "./config.ts";
  * - token 原文只出现在 Set-Cookie 响应头，不写日志、不进 localStorage。
  */
 
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 8;
 
 const ARGON2_OPTIONS = {
   type: argon2.argon2id,
