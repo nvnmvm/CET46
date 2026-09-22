@@ -1146,6 +1146,54 @@
   transition: transform 170ms var(--ease-out), opacity 140ms var(--ease-out);
 }
 
+#main-content {
+  view-transition-name: route-content;
+}
+
+.route-transition-content {
+  min-height: 1px;
+}
+
+@keyframes route-content-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes route-content-out {
+  to { opacity: 0; transform: translateY(-2px); }
+}
+
+@keyframes route-content-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes route-content-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@supports not (view-transition-name: route-content) {
+  .route-transition-content {
+    animation: route-content-in 180ms var(--ease-out) both;
+  }
+}
+
+::view-transition-old(route-content) {
+  animation: route-content-out 100ms var(--ease-out) both;
+}
+
+::view-transition-new(route-content) {
+  animation: route-content-in 200ms var(--ease-out) both;
+}
+
+.admin-state-surface {
+  min-height: 100vh;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
 @starting-style {
   .modal-backdrop { opacity: 0; }
   .modal-panel {
@@ -1155,6 +1203,10 @@
   .theme-menu {
     opacity: 0;
     transform: translateY(-4px) scale(0.97);
+  }
+  .admin-state-surface {
+    opacity: 0;
+    transform: translateY(4px);
   }
 }
 
@@ -1213,6 +1265,16 @@
   .statistics-back,
   .modal-backdrop,
   .modal-panel { transition: none; }
+
+  .route-transition-content,
+  .admin-state-surface { transition: opacity 100ms ease; animation: route-content-fade-in 100ms ease both; transform: none; }
+
+  ::view-transition-old(route-content) { animation: route-content-fade-out 100ms ease both; }
+  ::view-transition-new(route-content) { animation: route-content-fade-in 100ms ease both; }
+
+  @supports not (view-transition-name: route-content) {
+    .route-transition-content { animation: route-content-fade-in 100ms ease both; }
+  }
 
   .button-primary:active,
   .button-secondary:active,

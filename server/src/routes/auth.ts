@@ -46,6 +46,9 @@ export const authRoutes: FastifyPluginAsync<AuthRouteOptions> = async (app, opti
     if (!user || !valid) {
       return sendError(reply, 401, "invalid_credentials", "邮箱或密码不正确");
     }
+    if (user.disabledAt !== null) {
+      return sendError(reply, 401, "account_disabled", "账号已被管理员禁用");
+    }
 
     const token = generateSessionToken();
     const expiresAt = addSecondsIso(new Date(), config.sessionTtlSeconds);

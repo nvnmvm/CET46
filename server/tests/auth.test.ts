@@ -83,6 +83,39 @@ test("密码错误与账号不存在都返回 401，不泄露账号是否存在"
   }
 });
 
+test("禁用账号使用正确密码时返回明确错误，错误密码仍不泄露账号状态", async () => {
+  const { app, repository } = await createTestApp();
+  try {
+    const admin = await seedUser(repository, "admin@example.com", "Admin-Password-1949!");
+    const learner = await seedUser(repository, EMAIL, PASSWORD);
+    await repository.promoteUserToAdmin(admin.id);
+    await repository.adminSetUserDisabled(admin.id, learner.id, true);
+
+    const correctPassword = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: EMAIL, password: PASSWORD },
+    });
+    assert.equal(correctPassword.statusCode, 401);
+    assert.equal(correctPassword.json().error.code, "account_disabled");
+
+    const wrongPassword = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: EMAIL, password: "wrong-password" },
+    });
+    const unknownEmail = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "nobody@example.com", password: PASSWORD },
+    });
+    assert.deepEqual(wrongPassword.json(), unknownEmail.json());
+    assert.equal(wrongPassword.json().error.code, "invalid_credentials");
+  } finally {
+    await app.close();
+  }
+});
+
 test("登录请求体非法时返回 400", async () => {
   const { app } = await createTestApp();
   try {

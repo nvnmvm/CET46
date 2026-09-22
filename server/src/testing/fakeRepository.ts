@@ -310,7 +310,12 @@ export function createFakeRepository(options: FakeRepositoryOptions = {}): FakeR
     },
 
     async adminListUsers(options) {
-      const ordered = Array.from(users.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      const search = options.search?.trim().toLowerCase() ?? "";
+      const ordered = Array.from(users.values())
+        .filter((user) => search.length === 0
+          || user.email.toLowerCase().includes(search)
+          || (user.username ?? "").toLowerCase().includes(search))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       return { total: ordered.length, users: ordered.slice(options.offset, options.offset + options.limit).map((user) => ({ ...user })) };
     },
 

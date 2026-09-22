@@ -429,10 +429,15 @@ export function createMysqlRepository(pool: MysqlPool): WordRepository {
     },
 
     async adminListUsers(options) {
-      const [countRows] = await pool.execute<RowDataPacket[]>("SELECT COUNT(*) AS total FROM users");
+      const search = options.search?.trim() ?? "";
+      const escaped = search.replace(/[\\%_]/g, "\\$&");
+      const pattern = `%${escaped}%`;
+      const where = search.length > 0 ? " WHERE email LIKE ? ESCAPE '\\\\' OR username LIKE ? ESCAPE '\\\\'" : "";
+      const filters = search.length > 0 ? [pattern, pattern] : [];
+      const [countRows] = await pool.execute<RowDataPacket[]>(`SELECT COUNT(*) AS total FROM users${where}`, filters);
       const [rows] = await pool.query<UserRow[]>(
-        `SELECT ${userColumns} FROM users ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`,
-        [options.limit, options.offset],
+        `SELECT ${userColumns} FROM users${where} ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`,
+        [...filters, options.limit, options.offset],
       );
       return { total: Number(countRows[0]?.total ?? 0), users: rows.map(mapUser) };
     },

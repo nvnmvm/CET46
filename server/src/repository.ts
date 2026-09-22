@@ -118,7 +118,7 @@ export type NewUserInput = {
   role?: "admin" | "learner";
 };
 
-export type AdminUserListOptions = { limit: number; offset: number };
+export type AdminUserListOptions = { limit: number; offset: number; search?: string };
 export type AdminUserList = { users: UserRecord[]; total: number };
 
 /** 账号资料只允许用户修改展示字段；邮箱、密码和时区走各自受控流程。 */

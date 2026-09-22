@@ -10,5 +10,14 @@ export default defineConfig({
   plugins: [react()],
   server: { host: "0.0.0.0" },
   css: { postcss: resolve(toolingDirectory, "postcss.config.mjs") },
-  build: { outDir: resolve(toolingDirectory, "../../dist"), emptyOutDir: true },
+  build: {
+    outDir: resolve(toolingDirectory, "../../dist"),
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        app: resolve(toolingDirectory, "../../app/index.html"),
+        admin: resolve(toolingDirectory, "../../app/admin.html"),
+      },
+    },
+  },
 });

@@ -11,7 +11,23 @@ const passwordHash = await hashPassword('Preview-only-2026');
 repository.seedUser({ id: 'preview-admin', email: 'admin@example.test', username: '本地测试管理员', passwordHash, role: 'admin' });
 repository.seedUser({ id: 'preview-learner', email: 'learner@example.test', username: '本地测试学习者', passwordHash });
 const config = loadConfig({ NODE_ENV: 'test', SESSION_SECRET: 'local-preview-only-secret-0123456789abcdef', APP_ORIGIN: 'http://127.0.0.1:5177', COOKIE_SECURE: 'false' });
-const app = buildApp({ config, repository });
+const requestLogging = process.env.PREVIEW_LOG_REQUESTS === '1';
+const app = buildApp({
+  config,
+  repository,
+  logger: requestLogging ? {
+    level: 'info',
+    // Keep diagnostics useful without exposing passwords, cookies, authorization, or bodies.
+    serializers: {
+      req(request) { return { method: request.method, url: request.url }; },
+      res(reply) { return { statusCode: reply.statusCode }; },
+    },
+    redact: {
+      paths: ['req.headers', 'req.body', 'res.headers', 'req.raw.headers', 'res.raw.headers'],
+      censor: '[REDACTED]',
+    },
+  } : false,
+});
 await app.listen({ host: '127.0.0.1', port: 3002 });
 const vite = await createServer({
   configFile: fileURLToPath(new URL('./vite.config.mjs', import.meta.url)),

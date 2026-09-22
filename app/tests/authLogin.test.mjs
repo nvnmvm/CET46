@@ -95,6 +95,22 @@ test('登录失败：抛出受控 ApiError（服务端消息），且不写入�
   assert.equal(stored.size, 0, '认证失败后不应有本机档案或密码残留');
 });
 
+test('登录页的预期 401 不触发全局“会话过期”提示', async () => {
+  const events = [];
+  const previousWindow = globalThis.window;
+  globalThis.window = { dispatchEvent: event => events.push(event) };
+  try {
+    const { client } = createClient([
+      jsonResponse(401, { error: { code: 'invalid_credentials', message: '邮箱或密码不正确' } }),
+    ]);
+    await assert.rejects(client.login('a@example.com', 'wrong-password'), ApiError);
+    assert.deepEqual(events, []);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test('网络故障：登录抛出受控 ApiError，供登录页显示通用文案', async () => {
   const { client } = createClient([() => { throw new TypeError('fetch failed'); }]);
 

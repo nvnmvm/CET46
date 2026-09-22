@@ -152,6 +152,7 @@ export const ADMIN_USERS_MAX_LIMIT = 100;
 export const adminUsersQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(ADMIN_USERS_MAX_LIMIT).default(ADMIN_USERS_DEFAULT_LIMIT),
   offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  search: z.string().trim().max(254).optional().default(""),
 });
 
 export const adminCreateUserBodySchema = z.strictObject({

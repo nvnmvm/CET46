@@ -15,7 +15,6 @@ import { buildLearningStatistics } from "./data/statisticsService";
 import StatisticsPage from "./pages/StatisticsPage";
 import ModalPortal from "./components/ModalPortal";
 import { modalManager } from "./components/modalManager";
-import AdminUsersPage, { AdminEntry } from "./pages/AdminUsersPage";
 import { getMotionScrollBehavior } from "./utils/scrollBehavior";
 import { getHashSearchParams, routeNames, useHashRoute, type Route } from "./app/routes";
 import { parseTsv } from "./features/import/parseTsv";
@@ -130,6 +129,8 @@ const displayDate = (iso: string | null) => {
 const apiErrorMessage = (error: unknown, fallback: string): string => {
   if (!(error instanceof ApiError)) return error instanceof Error ? error.message : fallback;
   if (error.status === 0 || error.code === "network_error") return "网络连接失败，本次操作尚未确认保存。";
+  if (error.code === "invalid_credentials") return "邮箱或密码不正确。";
+  if (error.code === "account_disabled") return "账号已被管理员禁用。";
   if (error.status === 401) return "登录状态已过期，请重新登录。";
   if (error.status === 404) return "词条不存在或已经被删除，请重新加载。";
   if (error.status === 409 || error.code === "revision_conflict") return "另一设备已经更新了本轮进度，请重新读取后再继续。";
@@ -192,6 +193,7 @@ function PageShell({
   themeMode,
   onThemeChange,
   children,
+  contentKey,
   storageStatus,
   onDownloadDamagedData,
   onStartFresh,
@@ -201,6 +203,7 @@ function PageShell({
   themeMode: ThemeMode;
   onThemeChange: (mode: ThemeMode) => void;
   children: React.ReactNode;
+  contentKey: string;
   storageStatus: ReturnType<typeof wordRepository.getStorageStatus>;
   onDownloadDamagedData: () => void;
   onStartFresh: () => void;
@@ -261,7 +264,7 @@ function PageShell({
             )}
           </section>
         )}
-        {children}
+        <div key={contentKey} className="route-transition-content">{children}</div>
       </main>
       {!isLogin && (
       <nav aria-label="主导航" className="fixed inset-x-0 bottom-0 z-20 border-t border-blue-100 bg-white/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
@@ -746,7 +749,6 @@ function ProfilePage({ user, words, dueWords, onUserChanged }: { user: LocalUser
           <a href="#/import" className="button-secondary shrink-0 px-3 text-sm">导入词库</a>
         </div>
       </section>
-      <AdminEntry key={user.id} userId={user.id} />
       {settingsOpen && (
         <AccountSettingsModal
           user={user}
@@ -1283,7 +1285,6 @@ function LoginPage({ user, onLogin, onLogout, notice = "" }: { user: LocalUser |
       await onLogin(email.trim(), password);
       if (!mountedRef.current) return;
       setPassword("");
-      window.location.hash = "/";
     } catch (loginError) {
       if (!mountedRef.current) return;
       setError(apiErrorMessage(loginError, "登录失败，请稍后重试。"));
@@ -3193,6 +3194,7 @@ function GradeMetric({ label, value, tone }: { label: string; value: number; ton
 
 export default function App() {
   const route = useHashRoute();
+  const contentKey = typeof window === "undefined" ? route : window.location.hash || "#/";
   // 登录态只来自服务器会话：本机不再保留“已登录档案”，启动时先探测 /api/auth/me。
   const [user, setUser] = useState<LocalUser | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
@@ -3271,7 +3273,8 @@ export default function App() {
         if (!cancelled) setCloudLoading(false);
       });
     return () => { cancelled = true; };
-  }, [user?.id]);
+  // A successful re-authentication returns a new user object; reload cloud data even for the same account.
+  }, [user]);
 
   useEffect(() => {
     const onUnauthorized = () => {
@@ -3343,6 +3346,7 @@ export default function App() {
     try {
       const nextUser = await apiClient.login(email, password);
       setUser(nextUser);
+      window.location.hash = "/";
     } catch (error) {
       setCloudLoading(false);
       throw error;
@@ -3355,7 +3359,6 @@ export default function App() {
     setUser(null);
     setCloudLoading(false);
     setCloudError("");
-    refresh();
     window.location.hash = "/";
   };
 
@@ -3392,6 +3395,8 @@ export default function App() {
     );
   } else if (route === "/login") {
     content = <LoginPage user={user} onLogin={login} onLogout={logout} notice={authNotice} />;
+  } else if (route === "/admin") {
+    content = <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100"><p className="text-sm font-semibold text-blue-700">管理员后台已独立</p><h1 className="mt-2 text-2xl font-bold">请使用独立管理员页面</h1><p className="mt-3 text-sm text-slate-500">账号管理不再与学习页面共用界面。</p><a className="button-primary mt-6 inline-flex" href="/admin.html">打开管理员后台</a></section>;
   } else if (!user) {
     content = <SignInRequired />;
   } else if (route === "/import") {
@@ -3400,8 +3405,6 @@ export default function App() {
     content = <WordsPage user={user} words={words} todayWords={dueWords} onChanged={refresh} />;
   } else if (route === "/profile") {
     content = <ProfilePage user={user} words={words} dueWords={dueWords} onUserChanged={(nextUser) => { setUser(nextUser); refresh(); }} />;
-  } else if (route === "/admin") {
-    content = <AdminUsersPage key={user.id} currentUserId={user.id} />;
   } else if (route === "/statistics") {
     content = <StatisticsPage words={words} events={wordRepository.getLearningEvents(user.id)} />;
   } else if (route === "/review/new") {
@@ -3442,5 +3445,5 @@ export default function App() {
     content = <HomePage user={user} words={words} dueWords={dueWords} onChanged={refresh} onLoadDemo={async () => { await wordRepository.loadDemoWords(user.id); refresh(); }} />;
   }
 
-  return <PageShell route={route} user={user} themeMode={themeMode} onThemeChange={changeTheme} storageStatus={storageStatus} onDownloadDamagedData={downloadDamagedData} onStartFresh={startFresh}>{content}</PageShell>;
+  return <PageShell route={route} user={user} themeMode={themeMode} onThemeChange={changeTheme} contentKey={contentKey} storageStatus={storageStatus} onDownloadDamagedData={downloadDamagedData} onStartFresh={startFresh}>{content}</PageShell>;
 }

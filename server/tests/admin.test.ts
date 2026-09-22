@@ -160,6 +160,23 @@ test("管理员创建、分页、禁用启用、重置密码会撤销目标会�
     assert.equal(listed.json().users.length, 1);
     assert.equal("passwordHash" in listed.json().users[0], false);
 
+    const searched = await app.inject({
+      method: "GET",
+      url: "/api/admin/users?limit=20&offset=0&search=created",
+      headers: { cookie: adminCookie },
+    });
+    assert.equal(searched.statusCode, 200);
+    assert.equal(searched.json().total, 1);
+    assert.equal(searched.json().users[0].email, "created@example.com");
+
+    const noMatch = await app.inject({
+      method: "GET",
+      url: "/api/admin/users?limit=20&offset=0&search=missing",
+      headers: { cookie: adminCookie },
+    });
+    assert.equal(noMatch.statusCode, 200);
+    assert.equal(noMatch.json().total, 0);
+
     const disabled = await app.inject({
       method: "PATCH",
       url: `/api/admin/users/${existingLearner.id}/status`,

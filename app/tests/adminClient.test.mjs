@@ -12,10 +12,10 @@ function setup(payload, status = 200) {
   return { client, calls };
 }
 
-test('admin list uses cookie identity, pagination and only safe metadata', async () => {
+test('admin list uses cookie identity, pagination, search and only safe metadata', async () => {
   const { client, calls } = setup({ users: [{ ...user, passwordHash: 'must-not-return', learningEvents: [] }], total: 1 });
-  assert.deepEqual(await client.adminUsers({ limit: 20, offset: 0 }), { users: [user], total: 1 });
-  assert.equal(calls[0].url, '/api/admin/users?limit=20&offset=0');
+  assert.deepEqual(await client.adminUsers({ limit: 20, offset: 0, search: 'Learner' }), { users: [user], total: 1 });
+  assert.equal(calls[0].url, '/api/admin/users?limit=20&offset=0&search=Learner');
   assert.equal(calls[0].credentials, 'include');
   assert.equal(calls[0].body, undefined);
 });

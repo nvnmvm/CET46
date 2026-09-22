@@ -64,7 +64,7 @@ export type ApiClientOptions = {
   fetchImpl?: FetchLike;
 };
 
-export type ListOptions = { limit?: number; offset?: number };
+export type ListOptions = { limit?: number; offset?: number; search?: string };
 
 /** Account administration exposes metadata only, never credentials or learning data. */
 export type AdminUser = {
@@ -538,6 +538,8 @@ type RequestOptions = {
   body?: unknown;
   /** 仅 session() 使用：401 视为“未登录”，返回 null 而不是抛错。 */
   allowUnauthorized?: boolean;
+  /** 登录与权限探测的预期 401 不应冒充“当前会话过期”。 */
+  suppressUnauthorizedEvent?: boolean;
 };
 
 function normalizeBaseUrl(value: string): string {
@@ -715,7 +717,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     if (!response.ok) {
       const error = await readApiError(response);
       if (requestOptions.allowUnauthorized && error.status === 401) return null;
-      if (error.status === 401 && typeof window !== "undefined") {
+      if (error.status === 401 && !requestOptions.suppressUnauthorizedEvent && typeof window !== "undefined") {
         window.dispatchEvent(new Event("cet-word-api-unauthorized"));
       }
       throw error;
@@ -732,7 +734,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   return {
     async adminStatus(): Promise<boolean> {
       try {
-        const body = asJsonObject(await request("/api/admin/me", { method: "GET" }));
+        const body = asJsonObject(await request("/api/admin/me", { method: "GET", suppressUnauthorizedEvent: true }));
         return body.isAdmin === true;
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) return false;
@@ -784,7 +786,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
 
     async login(email: string, password: string): Promise<LocalUser> {
       const body = asJsonObject(
-        await request("/api/auth/login", { method: "POST", body: { email, password } }),
+        await request("/api/auth/login", { method: "POST", body: { email, password }, suppressUnauthorizedEvent: true }),
       );
       return mapUser(body.user);
     },
