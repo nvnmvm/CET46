@@ -21,6 +21,25 @@
   .button-quiet { @apply inline-flex min-h-12 items-center justify-center rounded-2xl px-4 font-semibold text-blue-700; }
   .card-link { @apply flex min-h-36 flex-col rounded-2xl border border-blue-100 bg-white p-5 shadow-sm; }
   .input { @apply min-h-12 w-full rounded-xl border border-blue-100 bg-white px-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100; }
+  .practice-session,
+  .practice-card { min-width: 0; }
+  .practice-session h1[tabindex="-1"]:focus { outline: none; }
+  .practice-card__prompt {
+    display: flex;
+    min-block-size: 10rem;
+    flex-direction: column;
+    justify-content: center;
+    overflow-wrap: anywhere;
+  }
+  .practice-card__feedback {
+    display: flex;
+    min-block-size: 10rem;
+    flex-direction: column;
+    justify-content: center;
+    overflow-wrap: anywhere;
+  }
+  .practice-card__input { min-width: 0; }
+  .practice-card__action { min-height: 3.5rem; white-space: normal; }
   .tag { @apply inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-medium; }
   .tag-marked { @apply bg-amber-100 text-amber-900; }
   .tag-added { @apply bg-blue-100 text-blue-800; }
@@ -28,6 +47,29 @@
   .theme-menu { @apply absolute right-0 top-full z-40 mt-2 w-40 rounded-2xl border border-stone-200 bg-white p-2 shadow-2xl; }
   .theme-menu-title { @apply px-3 py-2 text-xs font-semibold text-slate-400; }
   .theme-option { @apply flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm; }
+}
+
+.refresh-status {
+  position: fixed;
+  z-index: 30;
+  inset-block-start: calc(env(safe-area-inset-top) + 4.75rem);
+  inset-inline: 1rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.refresh-status span {
+  max-width: min(100%, 32rem);
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 0.5rem 0.9rem;
+  color: #1e3a8a;
+  background: rgba(239, 246, 255, 0.96);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .skip-link {
@@ -1187,6 +1229,11 @@
   animation: route-content-in 200ms var(--ease-out) both;
 }
 
+.practice-result {
+  opacity: 1;
+  transition: opacity 125ms var(--ease-out);
+}
+
 .admin-state-surface {
   min-height: 100vh;
   opacity: 1;
@@ -1195,6 +1242,7 @@
 }
 
 @starting-style {
+  .practice-result { opacity: 0; }
   .modal-backdrop { opacity: 0; }
   .modal-panel {
     opacity: 0;
@@ -1268,6 +1316,8 @@
 
   .route-transition-content,
   .admin-state-surface { transition: opacity 100ms ease; animation: route-content-fade-in 100ms ease both; transform: none; }
+
+  .practice-result { transition-property: opacity; }
 
   ::view-transition-old(route-content) { animation: route-content-fade-out 100ms ease both; }
   ::view-transition-new(route-content) { animation: route-content-fade-in 100ms ease both; }
@@ -1631,6 +1681,32 @@ html[data-theme="dark"] .input {
   border-color: #334155;
   background-color: #172033;
   color: #f8fafc;
+}
+
+html[data-theme="dark"] .practice-card {
+  border-color: #293548;
+  background-color: #172033;
+}
+
+html[data-theme="dark"] .refresh-status span {
+  border-color: #315789;
+  color: #dbeafe;
+  background: rgba(19, 37, 65, 0.97);
+}
+
+html[data-theme="dark"] .practice-card__feedback--waiting {
+  color: #cbd5e1;
+  background-color: #142c48;
+}
+
+html[data-theme="dark"] .practice-card__feedback--correct {
+  color: #dbeafe;
+  background-color: #132541;
+}
+
+html[data-theme="dark"] .practice-card__feedback--error {
+  color: #fde68a;
+  background-color: #352515;
 }
 
 html[data-theme="dark"] .tag-marked {

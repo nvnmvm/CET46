@@ -15,6 +15,7 @@ import { buildLearningStatistics } from "./data/statisticsService";
 import StatisticsPage from "./pages/StatisticsPage";
 import ModalPortal from "./components/ModalPortal";
 import { modalManager } from "./components/modalManager";
+import PracticeSpellingCard from "./components/PracticeSpellingCard";
 import { getMotionScrollBehavior } from "./utils/scrollBehavior";
 import { getHashSearchParams, routeNames, useHashRoute, type Route } from "./app/routes";
 import { parseTsv } from "./features/import/parseTsv";
@@ -191,6 +192,7 @@ function PageShell({
   route,
   user,
   themeMode,
+  refreshing,
   onThemeChange,
   children,
   contentKey,
@@ -201,6 +203,7 @@ function PageShell({
   route: Route;
   user: LocalUser | null;
   themeMode: ThemeMode;
+  refreshing: boolean;
   onThemeChange: (mode: ThemeMode) => void;
   children: React.ReactNode;
   contentKey: string;
@@ -216,6 +219,7 @@ function PageShell({
     { route: "/profile", icon: "◎", label: "个人" },
   ];
   const isLogin = route === "/login";
+  const isPractice = route === "/review" || route === "/review/new" || route === "/review/review" || route === "/spell";
   useEffect(() => {
     document.title = `${routeNames[route]} · CET 真题背词`;
     if (previousRoute.current !== route) {
@@ -225,7 +229,8 @@ function PageShell({
   }, [route]);
 
   return (
-    <div className="app-shell min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-amber-50/50 text-slate-900">
+    <div className={`app-shell min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-amber-50/50 text-slate-900 ${isPractice ? "app-shell--practice" : ""}`}>
+      {refreshing && <div className="refresh-status" role="status" aria-live="polite"><span>正在更新学习数据…</span></div>}
       <button type="button" className="skip-link" onClick={() => mainRef.current?.focus({ preventScroll: false })}>跳到主要内容</button>
       <header className="sticky top-0 z-10 border-b border-blue-100/80 bg-white/90 px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
         <div className="mx-auto flex items-center justify-between gap-3 max-w-3xl lg:max-w-5xl">
@@ -235,7 +240,7 @@ function PageShell({
           </a>
           <div className="flex min-w-0 shrink-0 items-center gap-2">
             <ThemeMenu mode={themeMode} onChange={onThemeChange} />
-            {!isLogin && (
+            {!isLogin && !isPractice && (
               <a
                 href="#/login"
                 className="inline-flex min-h-11 max-w-[8rem] items-center truncate rounded-full bg-white px-3 text-xs text-slate-600 ring-1 ring-stone-200 sm:max-w-[10rem]"
@@ -250,7 +255,7 @@ function PageShell({
         id="main-content"
         ref={mainRef}
         tabIndex={-1}
-        className={`mx-auto max-w-3xl px-5 pb-10 pt-10 focus:outline-none lg:max-w-5xl lg:px-7 ${isLogin ? "" : "pb-28 pt-7"}`}
+        className={`mx-auto w-full focus:outline-none ${isPractice ? "max-w-3xl px-4 pb-10 pt-7 sm:px-7" : `max-w-3xl px-5 pb-10 pt-10 lg:max-w-5xl lg:px-7 ${isLogin ? "" : "pb-28 pt-7"}`}`}
       >
         {storageStatus && (
           <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="alert">
@@ -266,12 +271,11 @@ function PageShell({
         )}
         <div key={contentKey} className="route-transition-content">{children}</div>
       </main>
-      {!isLogin && (
+      {!isLogin && !isPractice && (
       <nav aria-label="主导航" className="fixed inset-x-0 bottom-0 z-20 border-t border-blue-100 bg-white/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
           <div className="mx-auto flex max-w-md items-center justify-around">
             {navigation.map((item) => {
-              const isReviewRoute = route === "/review" || route === "/review/new" || route === "/review/review";
-              const isNavActive = item.route === route || (item.route === "/" && isReviewRoute);
+              const isNavActive = item.route === route;
               return (
                 <a
                   key={item.route}
@@ -2162,7 +2166,13 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
   const [completionSaving, setCompletionSaving] = useState(false);
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingStudy = useRef(false);
+  const practiceSessionRef = useRef<HTMLDivElement>(null);
   const current = items[index] ?? items[0];
+
+  useEffect(() => {
+    if (modalManager.size() > 0) return;
+    practiceSessionRef.current?.querySelector<HTMLHeadingElement>("h1")?.focus({ preventScroll: true });
+  }, [index, phase]);
 
   useEffect(() => {
     if (phase === "complete") {
@@ -2198,7 +2208,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
     </a>
   );
   const withBack = (content: React.ReactNode) => (
-    <div className="space-y-5">
+    <div ref={practiceSessionRef} className="practice-session space-y-5" data-phase={phase}>
       <div>{backToToday}</div>
       {content}
     </div>
@@ -2256,9 +2266,9 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
 
   if (items.length === 0 && phase !== "complete") {
     return withBack(
-      <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
+      <section className="practice-result rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <p className="text-sm font-medium text-blue-700">新学任务已完成</p>
-        <h1 className="mt-2 text-2xl font-bold">暂时没有待学新词</h1>
+        <h1 tabIndex={-1} className="mt-2 text-2xl font-bold">暂时没有待学新词</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">新导入的词会先进入这里，完成认识后才会在明天进入复习。</p>
         <a href="#/import" className="button-primary mt-6 inline-flex">导入 TSV</a>
       </section>,
@@ -2271,7 +2281,7 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
       <>
         <section>
           <p className="text-sm font-medium text-blue-700">本轮新学</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">先认识新词，再安排复习</h1>
+          <h1 tabIndex={-1} className="mt-1 text-3xl font-bold tracking-tight">先认识新词，再安排复习</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">这里不会先让你回忆或拼写。看完本组后，单词才会进入明天的复习队列。</p>
         </section>
         <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
@@ -2295,15 +2305,16 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
   if (phase === "complete") {
     const remaining = newWords.length;
     return withBack(
-      <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
+      <section className="practice-result rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-3xl text-blue-700">✓</div>
         <p className="mt-5 text-sm font-medium text-blue-700">本轮新学完成</p>
-        <h1 className="mt-2 text-3xl font-bold">已认识 {completion?.completed ?? 0} 个新词</h1>
+        <h1 tabIndex={-1} className="mt-2 text-3xl font-bold">已认识 {completion?.completed ?? 0} 个新词</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">它们已安排在 {displayDate(completion?.earliestNextReviewAt ?? null)} 复习；新学不计入认词或拼写成绩。</p>
         {remaining > 0 && <button type="button" onClick={startNextGroup} className="button-primary mt-6 w-full">继续下一组 {Math.min(remaining, groupWords, MAX_SESSION_WORDS)} 个词</button>}
-        <div className="mt-7 grid grid-cols-2 gap-3">
+        <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <a href="#/" className="button-secondary">回到首页</a>
           <a href="#/words" className="button-primary">查看词库</a>
+          <a href="#/spell" className="button-secondary">拼写今天新学的词</a>
         </div>
       </section>,
     );
@@ -2314,11 +2325,11 @@ function NewStudyPage({ user, newWords, allWords, groupWords, onFinished }: { us
     <>
       {draftWarning && <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">{draftWarning}</p>}
       <ReviewProgress label="新学" index={index} total={items.length} detail="先理解词义" />
-      <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
+      <section className="practice-card rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-blue-700">先完整认识这个词</p>
-            <h1 className="mt-4 break-words text-4xl font-bold tracking-tight sm:text-5xl">{current.word}</h1>
+            <h1 tabIndex={-1} className="mt-4 break-words text-4xl font-bold tracking-tight sm:text-5xl">{current.word}</h1>
             {current.phonetic && <p className="mt-3 font-mono text-base text-blue-700">{current.phonetic}</p>}
           </div>
           <button type="button" onClick={() => speakWord(current.word)} className="tap-feedback inline-flex min-h-11 shrink-0 items-center rounded-full bg-blue-50 px-3 text-xs font-medium text-blue-700">🔊 发音</button>
@@ -2410,6 +2421,7 @@ function SpellingPracticePage({
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingSpelling = useRef(false);
   const spellingResultActionRef = useRef<HTMLButtonElement>(null);
+  const practiceSessionRef = useRef<HTMLDivElement>(null);
   const current = items[index] ?? items[0];
   const groupNumber = source === "library" ? Math.floor(groupStart / groupLimit) + 1 : 1;
   const groupTotal = source === "library" ? Math.max(1, Math.ceil(spellingCandidates.length / groupLimit)) : 1;
@@ -2418,6 +2430,11 @@ function SpellingPracticePage({
   const nextLibraryGroupSize = Math.min(groupLimit, spellingCandidates.length - nextGroupStart);
   const backHref = source === "library" ? "#/words" : "#/";
   const backText = source === "library" ? "返回词库" : "返回今日";
+
+  useEffect(() => {
+    if (phase !== "complete" || modalManager.size() > 0) return;
+    practiceSessionRef.current?.querySelector<HTMLHeadingElement>("h1")?.focus({ preventScroll: true });
+  }, [phase]);
 
   useEffect(() => {
     if (phase === "complete") {
@@ -2462,7 +2479,7 @@ function SpellingPracticePage({
     </a>
   );
   const withBack = (content: React.ReactNode) => (
-    <div className="space-y-5">
+    <div ref={practiceSessionRef} className="practice-session space-y-5" data-phase={phase}>
       <div>{backToSource}</div>
       {content}
     </div>
@@ -2554,7 +2571,7 @@ function SpellingPracticePage({
       return withBack(
         <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
           <p className="text-sm font-medium text-blue-700">词库范围拼写</p>
-          <h1 className="mt-2 text-2xl font-bold">当前“{scopeLabel}”分组没有可拼写的词</h1>
+          <h1 tabIndex={-1} className="mt-2 text-2xl font-bold">当前“{scopeLabel}”分组没有可拼写的词</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">切换词库筛选后，再从浮动拼写入口开始练习。</p>
           <a href="#/words" className="button-primary mt-6 inline-flex">回到词库</a>
         </section>,
@@ -2563,7 +2580,7 @@ function SpellingPracticePage({
     return withBack(
       <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <p className="text-sm font-medium text-blue-700">拼写练习</p>
-        <h1 className="mt-2 text-2xl font-bold">先完成今天的新学，再来拼写</h1>
+        <h1 tabIndex={-1} className="mt-2 text-2xl font-bold">先完成今天的新学，再来拼写</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">拼写只会抽取今天刚完成新学的单词；以前学过或今天复习的词不会混进来。</p>
         <a href="#/review/new" className="button-primary mt-6 inline-flex">去新学</a>
       </section>,
@@ -2579,7 +2596,7 @@ function SpellingPracticePage({
       <>
         <section>
           <p className="text-sm font-medium text-blue-700">{source === "library" ? "词库范围拼写" : "独立拼写练习"}</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">{readyTitle}</h1>
+          <h1 tabIndex={-1} className="mt-1 text-3xl font-bold tracking-tight">{readyTitle}</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">{readyDescription}</p>
         </section>
         <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
@@ -2605,17 +2622,26 @@ function SpellingPracticePage({
         ? `其中 ${completion.corrected} 个词已订正，系统会保留拼写薄弱信号。`
         : "本轮拼写表现已记录，不会改变认词或复习层级。";
     return withBack(
-      <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
+      <section className="practice-result rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-3xl text-blue-700">✓</div>
         <p className="mt-5 text-sm font-medium text-blue-700">拼写练习完成</p>
-        <h1 className="mt-2 text-3xl font-bold">已完成 {completion?.completed ?? 0} 个词</h1>
+        <h1 tabIndex={-1} className="mt-2 text-3xl font-bold">已完成 {completion?.completed ?? 0} 个词</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">{completionDescription}</p>
         {source === "library" && hasNextLibraryGroup ? (
           <button type="button" onClick={startNextLibraryGroup} className="button-primary mt-7 w-full">继续第 {groupNumber + 1} 组 {nextLibraryGroupSize} 个词</button>
         ) : (
-          <div className="mt-7 grid grid-cols-2 gap-3">
-            <a href={backHref} className="button-secondary">{source === "library" ? "回到词库" : "回到首页"}</a>
-            <a href="#/words" className="button-primary">查看词库</a>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            {source === "library" ? (
+              <>
+                <a href="#/words" className="button-secondary">回到词库</a>
+                <a href="#/" className="button-primary">回到今日</a>
+              </>
+            ) : (
+              <>
+                <a href={backHref} className="button-secondary">回到首页</a>
+                <a href="#/words" className="button-primary">查看词库</a>
+              </>
+            )}
           </div>
         )}
       </section>,
@@ -2627,40 +2653,23 @@ function SpellingPracticePage({
     <>
       {draftWarning && <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">{draftWarning}</p>}
       <ReviewProgress label={source === "library" ? `${scopeLabel} · 拼写` : "拼写练习"} index={index} total={items.length} detail="必须拼对才能继续" />
-      <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
-        <p className="text-sm font-medium text-blue-700">请根据中文释义写出英文</p>
-        <h1 className="mt-5 text-2xl font-bold leading-relaxed">{current.meaning || "请根据语境写出英文"}</h1>
-        {current.sentenceCn && <p className="mt-3 text-sm leading-6 text-slate-500">语境：{current.sentenceCn}</p>}
-        {current.source && <p className="mt-2 text-xs text-slate-400">来源：{current.source}</p>}
-        {!spellingChecked ? (
-          <div className="mt-7 space-y-3">
-            <input
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter") checkSpelling(); }}
-              autoFocus
-              autoCapitalize="none"
-              autoCorrect="off"
-              placeholder="输入英文单词"
-              className="input font-mono text-lg"
-            />
-            <button type="button" onClick={checkSpelling} className="button-primary w-full">提交</button>
-          </div>
-        ) : !spellingChecked.correct ? (
-          <div className="mt-7 rounded-2xl bg-amber-50 p-4 text-amber-950">
-            <p className="font-bold">还差一点，再记一次</p>
-            <p className="mt-2 text-sm">你的答案：{spellingChecked.input.trim() || "（空）"}<br />正确答案：<strong>{current.word}</strong></p>
-            {current.phonetic && <p className="mt-2 font-mono text-sm">{current.phonetic}</p>}
-            <button ref={spellingResultActionRef} type="button" onClick={retrySpelling} className="button-primary mt-4 w-full">隐藏答案，再拼一次</button>
-          </div>
-        ) : (
-          <div className="mt-7 rounded-2xl bg-blue-50 p-4 text-blue-900">
-            <p className="font-bold">拼写正确</p>
-            {spellingChecked.hadError && <p className="mt-2 text-sm">{source === "library" ? "已订正成功；本次练习不写入学习记录。" : "已订正成功；本次拼错会保留为拼写练习信号。"}</p>}
-            <button ref={spellingResultActionRef} type="button" onClick={() => { void continueSpelling(); }} disabled={completionSaving} className="button-primary mt-4 w-full">{completionSaving ? "保存中…" : index === items.length - 1 ? "完成本组拼写" : "下一个词"}</button>
-          </div>
-        )}
-      </section>
+      <PracticeSpellingCard
+        word={current.word}
+        meaning={current.meaning ?? ""}
+        phonetic={current.phonetic ?? ""}
+        sentenceCn={current.sentenceCn ?? ""}
+        source={current.source ?? ""}
+        answer={answer}
+        onAnswerChange={setAnswer}
+        checked={spellingChecked}
+        saving={completionSaving}
+        actionRef={spellingResultActionRef}
+        onCheck={checkSpelling}
+        onRetry={retrySpelling}
+        onContinue={() => { void continueSpelling(); }}
+        continueLabel={index === items.length - 1 ? "完成本组拼写" : "下一个词"}
+        correctedMessage={source === "library" ? "已订正成功；本次练习不写入学习记录。" : "已订正成功；本次拼错会保留为拼写练习信号。"}
+      />
     </>,
   );
 }
@@ -2730,6 +2739,13 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
   const [draftWarning, setDraftWarning] = useState("");
   const finalizingReview = useRef(false);
   const spellingResultActionRef = useRef<HTMLButtonElement>(null);
+  const practiceSessionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (phase === "spelling" || modalManager.size() > 0) return;
+    practiceSessionRef.current?.querySelector<HTMLHeadingElement>("h1")?.focus({ preventScroll: true });
+  }, [firstChoice, index, phase]);
+
   const backToToday = (
     <a href="#/" className="button-quiet w-fit px-2 text-sm" aria-label="返回今日页面">
       <span aria-hidden="true">←</span>
@@ -2737,7 +2753,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     </a>
   );
   const withBack = (content: React.ReactNode) => (
-    <div className="space-y-5">
+    <div ref={practiceSessionRef} className="practice-session space-y-5" data-phase={phase}>
       <div>{backToToday}</div>
       {content}
     </div>
@@ -2783,7 +2799,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     return withBack(
       <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <p className="text-sm font-medium text-blue-700">{modeLabel}任务已完成</p>
-        <h1 className="mt-2 text-2xl font-bold">暂时没有{mode === "new" ? "待学新词" : mode === "review" ? "到期复习词" : "到期单词"}</h1>
+        <h1 tabIndex={-1} className="mt-2 text-2xl font-bold">暂时没有{mode === "new" ? "待学新词" : mode === "review" ? "到期复习词" : "到期单词"}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">新导入的词会进入新学队列，到期词会进入复习队列。</p>
         <a href="#/import" className="button-primary mt-6 inline-flex">导入 TSV</a>
       </section>
@@ -2936,7 +2952,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
       <>
         <section>
           <p className="text-sm font-medium text-blue-700">本轮{modeLabel}计划</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">先回忆，再验证</h1>
+          <h1 tabIndex={-1} className="mt-1 text-3xl font-bold tracking-tight">先回忆，再验证</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">每个词都要主动想一次；没想起的会排到队尾回炉，最后用拼写确认。</p>
         </section>
         <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
@@ -2968,9 +2984,9 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
     const retried = answers.filter((item) => item.hadError).length;
     const extraAttempts = answers.reduce((sum, item) => sum + item.attempts - 1, 0);
     return withBack(
-      <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
+      <section className="practice-result rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
         <p className="text-sm font-medium text-blue-700">理解回忆完成</p>
-        <h1 className="mt-2 text-2xl font-bold">所有错词已回炉通过</h1>
+        <h1 tabIndex={-1} className="mt-2 text-2xl font-bold">所有错词已回炉通过</h1>
         <div className="mt-6 grid grid-cols-2 gap-3">
           <Metric label="本轮词数" value={items.length} />
           <Metric label="首次想起" value={answers.filter((item) => !item.hadError).length} />
@@ -2985,10 +3001,10 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
 
   if (phase === "complete") {
     return withBack(
-      <section className="rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
+      <section className="practice-result rounded-3xl bg-white p-7 text-center shadow-card ring-1 ring-stone-100">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-3xl text-blue-700">✓</div>
         <p className="mt-5 text-sm font-medium text-blue-700">本轮复习完成</p>
-        <h1 className="mt-2 text-3xl font-bold">已处理 {(completion?.completed ?? 0) + killedInSession} 个词</h1>
+        <h1 tabIndex={-1} className="mt-2 text-3xl font-bold">已处理 {(completion?.completed ?? 0) + killedInSession} 个词</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">系统已综合理解回忆与拼写表现，安排下一次复习；最早到期日为 {displayDate(completion?.earliestNextReviewAt ?? null)}。</p>
         {completion && (
           <div className="mt-6 grid grid-cols-4 gap-2 text-left">
@@ -3014,40 +3030,23 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
       <>
         {draftWarning && <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">{draftWarning}</p>}
         <ReviewProgress label={`${modeLabel} · 拼写验证`} index={index} total={items.length} detail="必须拼对才能继续" />
-        <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-stone-100">
-          <p className="text-sm font-medium text-blue-700">请根据中文释义写出英文</p>
-          <h1 className="mt-5 break-words text-2xl font-bold leading-relaxed [overflow-wrap:anywhere]">{current.meaning || "请根据语境写出英文"}</h1>
-          {current.sentenceCn && <p className="mt-3 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">语境：{current.sentenceCn}</p>}
-          {current.source && <p className="mt-2 break-words text-xs text-slate-400 [overflow-wrap:anywhere]">来源：{current.source}</p>}
-          {!spellingChecked ? (
-            <div className="mt-7 space-y-3">
-              <input
-                value={answer}
-                onChange={(event) => setAnswer(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") checkSpelling(); }}
-                autoFocus
-                autoCapitalize="none"
-                autoCorrect="off"
-                placeholder="输入英文单词"
-                className="input font-mono text-lg"
-              />
-              <button type="button" onClick={checkSpelling} className="button-primary w-full">提交</button>
-            </div>
-          ) : !spellingChecked.correct ? (
-            <div className="mt-7 rounded-2xl bg-amber-50 p-4 text-amber-950">
-              <p className="font-bold">还差一点，再记一次</p>
-              <p className="mt-2 text-sm">你的答案：{spellingChecked.input.trim() || "（空）"}<br />正确答案：<strong>{current.word}</strong></p>
-              {current.phonetic && <p className="mt-2 font-mono text-sm">{current.phonetic}</p>}
-              <button ref={spellingResultActionRef} type="button" onClick={retrySpelling} className="button-primary mt-4 w-full">隐藏答案，再拼一次</button>
-            </div>
-          ) : (
-            <div className="mt-7 rounded-2xl bg-blue-50 p-4 text-blue-900">
-              <p className="font-bold">拼写正确</p>
-              {spellingChecked.hadError && <p className="mt-2 text-sm">已订正成功；本轮拼错记录会保留，下一次会更早复习。</p>}
-              <button ref={spellingResultActionRef} type="button" onClick={continueSpelling} className="button-primary mt-4 w-full">{index === items.length - 1 ? "完成本轮复习" : "下一个词"}</button>
-            </div>
-          )}
-        </section>
+        <PracticeSpellingCard
+          word={current.word}
+          meaning={current.meaning ?? ""}
+          phonetic={current.phonetic ?? ""}
+          sentenceCn={current.sentenceCn ?? ""}
+          source={current.source ?? ""}
+          answer={answer}
+          onAnswerChange={setAnswer}
+          checked={spellingChecked}
+          saving={completionSaving}
+          actionRef={spellingResultActionRef}
+          onCheck={checkSpelling}
+          onRetry={retrySpelling}
+          onContinue={() => { void continueSpelling(); }}
+          continueLabel={index === items.length - 1 ? "完成本轮复习" : "下一个词"}
+          correctedMessage="已订正成功；本轮拼错记录会保留，下一次会更早复习。"
+        />
       </>
     );
   }
@@ -3062,14 +3061,14 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         total={recognitionQueue.length}
         detail={isRelearning ? `第 ${priorAttempts + 1} 次尝试` : "先回忆，再看答案"}
       />
-      <section className={`rounded-3xl bg-white p-6 shadow-card ring-1 ${isRelearning ? "ring-amber-200" : "ring-stone-100"}`}>
+      <section className={`practice-card rounded-3xl bg-white p-6 shadow-card ring-1 ${isRelearning ? "ring-amber-200" : "ring-stone-100"}`}>
         {!firstChoice ? (
           <>
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-blue-700">{isRelearning ? "再想一次，答案仍然隐藏" : "先做第一反应，不显示答案"}</p>
               {isRelearning && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">回炉</span>}
             </div>
-            <h1 className="mt-12 break-words text-center text-4xl font-bold tracking-tight sm:text-5xl">{current.word}</h1>
+            <h1 tabIndex={-1} className="mt-12 break-words text-center text-4xl font-bold tracking-tight sm:text-5xl">{current.word}</h1>
             <div className="mt-14 grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setFirstChoice("known")} className="review-choice review-choice-primary min-h-14 rounded-2xl bg-blue-700 px-4 font-bold text-white">想起来了</button>
               <button type="button" onClick={() => setFirstChoice("unknown")} className="review-choice review-choice-secondary min-h-14 rounded-2xl border border-amber-200 bg-amber-50 px-4 font-bold text-amber-900">还没想起</button>
@@ -3078,7 +3077,7 @@ function ReviewPage({ user, dueWords, allWords, groupWords, mode, onFinished }: 
         ) : (
           <>
             <p className="text-sm font-medium text-blue-700">核对答案 · 你刚才{firstChoice === "known" ? "想起来了" : "还没想起"}</p>
-            <h1 className="mt-4 text-3xl font-bold">{current.word}</h1>
+            <h1 tabIndex={-1} className="mt-4 text-3xl font-bold">{current.word}</h1>
             <div className="mt-2 flex items-center gap-3">
               {current.phonetic && <p className="font-mono text-base text-blue-700">{current.phonetic}</p>}
               <button type="button" onClick={() => speakWord(current.word)} className="tap-feedback inline-flex min-h-11 items-center rounded-full bg-blue-50 px-3 text-xs font-medium text-blue-700">🔊 发音</button>
@@ -3204,6 +3203,7 @@ export default function App() {
   const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches === true);
   const [revision, setRevision] = useState(0);
   const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudRefreshing, setCloudRefreshing] = useState(false);
   const [cloudError, setCloudError] = useState("");
   const [authNotice, setAuthNotice] = useState("");
   const [storageStatus, setStorageStatus] = useState(() => wordRepository.getStorageStatus());
@@ -3215,6 +3215,7 @@ export default function App() {
       authProbeRef.current += 1;
       setUser(null);
       setCloudLoading(false);
+      setCloudRefreshing(false);
       setCloudError("");
       setAuthNotice("登录状态已过期，请重新登录。");
       window.location.hash = "/login";
@@ -3224,15 +3225,16 @@ export default function App() {
   };
   const refresh = () => {
     if (!user) {
+      setCloudRefreshing(false);
       setRevision((value) => value + 1);
       return;
     }
-    setCloudLoading(true);
+    setCloudRefreshing(true);
     setCloudError("");
     void wordRepository.hydrate(user.id)
       .then(() => setRevision((value) => value + 1))
       .catch((error) => handleCloudError(error, "云端数据加载失败，请重试。"))
-      .finally(() => setCloudLoading(false));
+      .finally(() => setCloudRefreshing(false));
   };
 
   useEffect(() => {
@@ -3257,6 +3259,7 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setCloudLoading(false);
+      setCloudRefreshing(false);
       return;
     }
     let cancelled = false;
@@ -3281,6 +3284,7 @@ export default function App() {
       authProbeRef.current += 1;
       setUser(null);
       setCloudLoading(false);
+      setCloudRefreshing(false);
       setCloudError("");
       setAuthNotice("登录状态已过期，请重新登录。");
       window.location.hash = "/login";
@@ -3358,6 +3362,7 @@ export default function App() {
     await apiClient.logout();
     setUser(null);
     setCloudLoading(false);
+    setCloudRefreshing(false);
     setCloudError("");
     window.location.hash = "/";
   };
@@ -3445,5 +3450,5 @@ export default function App() {
     content = <HomePage user={user} words={words} dueWords={dueWords} onChanged={refresh} onLoadDemo={async () => { await wordRepository.loadDemoWords(user.id); refresh(); }} />;
   }
 
-  return <PageShell route={route} user={user} themeMode={themeMode} onThemeChange={changeTheme} contentKey={contentKey} storageStatus={storageStatus} onDownloadDamagedData={downloadDamagedData} onStartFresh={startFresh}>{content}</PageShell>;
+  return <PageShell route={route} user={user} themeMode={themeMode} refreshing={cloudRefreshing} onThemeChange={changeTheme} contentKey={contentKey} storageStatus={storageStatus} onDownloadDamagedData={downloadDamagedData} onStartFresh={startFresh}>{content}</PageShell>;
 }
